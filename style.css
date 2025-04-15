@@ -1,101 +1,216 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
 body {
-    font-family: Arial, sans-serif;
-    text-align: center;
-    background-color: #f0f0f0;
-    margin: 0;
-    padding: 20px;
+  font-family: 'Roboto', Arial, sans-serif;
+  background-color: #1a1a1a;
+  color: #ffffff;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.game-header {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.game-header h1 {
+  font-size: 2.5rem;
+  color: #ffd700;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.game-container {
+  flex: 1;
+  max-width: 900px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.unit-controls, .game-controls {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.unit-button, .spawn-button, .control-button {
+  padding: 12px 24px;
+  font-size: 1rem;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: transform 0.2s, background-color 0.2s;
+  color: #fff;
+}
+
+.unit-button {
+  background-color: #3b5998;
+}
+
+.unit-button.active {
+  background-color: #ffd700;
+  color: #1a1a1a;
+  transform: scale(1.05);
+}
+
+.spawn-button {
+  background-color: #28a745;
+  font-weight: bold;
+}
+
+.control-button {
+  background-color: #dc3545;
+}
+
+.unit-button:hover, .spawn-button:hover, .control-button:hover {
+  transform: scale(1.1);
+}
+
+.unit-button:disabled, .spawn-button:disabled, .control-button:disabled {
+  background-color: #555;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.game-canvas {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+canvas {
+  background: linear-gradient(to bottom, #4a90e2, #2ecc71);
+  border: 3px solid #333;
+  border-radius: 8px;
+  max-width: 100%;
+  height: auto;
+}
+
+.wave-progress {
+  width: 50%;
+  height: 12px;
+  background: #333;
+  border-radius: 6px;
+  overflow: hidden;
+  margin-top: 10px;
+}
+
+#waveProgressBar {
+  height: 100%;
+  background: #ffd700;
+  transition: width 0.5s ease-in-out;
+}
+
+.shop-panel {
+  background: #2c2c2c;
+  padding: 20px;
+  border-radius: 8px;
+  display: none;
+}
+
+.shop-panel h3 {
+  color: #ffd700;
+  margin-bottom: 15px;
+}
+
+.shop-panel button {
+  background: #3b5998;
+  color: #fff;
+  padding: 10px 20px;
+  margin: 5px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.shop-panel button:hover {
+  background: #4a90e2;
+}
+
+.wave-cooldown {
+  font-size: 1.2rem;
+  font-weight: bold;
+  text-align: center;
+  margin-top: 10px;
+}
+
+.feedback-message {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.8);
+  color: #ffd700;
+  padding: 10px 20px;
+  border-radius: 6px;
+  opacity: 0;
+  transition: opacity 0.5s;
+}
+
+.feedback-message.show {
+  opacity: 1;
+}
+
+.game-footer {
+  text-align: center;
+  padding: 10px;
+  background: #2c2c2c;
+  border-radius: 8px;
+  margin-top: 20px;
+}
+
+.game-footer p {
+  font-size: 1.1rem;
+}
+
+.game-footer span {
+  color: #ffd700;
+}
+
+/* Responsive Design */
+@media (max-width: 600px) {
+  .game-header h1 {
+    font-size: 1.8rem;
   }
-  
+
+  .unit-controls, .game-controls {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .unit-button, .spawn-button, .control-button {
+    width: 90%;
+    padding: 10px;
+    font-size: 0.9rem;
+  }
+
   canvas {
-    background: linear-gradient(to bottom, #87ceeb, #228b22); /* Sky to grass gradient */
-    border: 2px solid #000;
-    display: block;
-    margin: 0 auto;
-    max-width: 100%; /* Scale for mobile */
+    width: 100%;
   }
-  
-  #gameControls {
-    margin-top: 10px;
+
+  .wave-progress {
+    width: 80%;
   }
-  
-  #shop button {
-    margin: 5px;
-    padding: 8px 15px;
-    font-size: 14px;
+
+  .game-footer p {
+    font-size: 1rem;
   }
-  
-  #unitControls {
-    margin-bottom: 10px;
-  }
-  
-  #unitControls button {
-    margin: 0 5px;
-    padding: 8px 15px;
-    font-size: 14px;
-  }
-  
-  #waveCooldown {
-    font-family: Arial;
-    font-size: 18px;
-    margin-top: 10px;
-    color: red;
-  }
-  
-  #gameControls button {
-    padding: 8px 20px;
-    font-size: 16px;
-    margin: 0 10px;
-  }
-  
-  #restartButton, #soundToggleButton {
-    padding: 8px 20px;
-    font-size: 16px;
-    margin: 0 10px;
-    background: #3498db;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-  }
-  
-  #restartButton:hover, #soundToggleButton:hover {
-    background: #2980b9;
-  }
-  
-  #waveProgress {
-    width: 200px;
-    height: 10px;
-    background: #ccc;
-    margin: 10px auto;
-    border-radius: 5px;
-    overflow: hidden;
-  }
-  
-  #waveProgressBar {
-    height: 100%;
-    background: #2ecc71;
-    transition: width 0.5s;
-  }
-  
-  #feedbackMessage {
-    transition: opacity 0.5s;
-  }
-  
-  /* Mobile responsiveness */
-  @media (max-width: 600px) {
-    #unitControls, #gameControls {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-  
-    #unitControls button, #gameControls button {
-      width: 80%;
-      margin: 5px 0;
-    }
-  
-    canvas {
-      width: 100%;
-      height: auto;
-    }
-  }
+}
+.damage-text {
+  position: absolute;
+  font-weight: bold;
+  font-size: 16px;
+  pointer-events: none;
+  text-shadow: 1px 1px 2px #000;
+  transition: all 0.5s;
+}

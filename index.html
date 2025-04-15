@@ -2,38 +2,52 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"> <!-- For mobile responsiveness -->
-  <title>We Are Warriors - Simple Clone</title>
-  <link rel="stylesheet" href="styles.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>We Are Warriors</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div id="unitControls">
-    <button id="barbarianButton">Barbarian (1)</button>
-    <button id="archerButton">Archer (2)</button>
-    <button id="horseButton">Horse (3)</button>
-    <button id="spawnButton">Spawn Unit (Space)</button>
-  </div>
+  <header class="game-header">
+    <h1>We Are Warriors</h1>
+  </header>
 
-  <canvas id="gameCanvas" width="800" height="300"></canvas>
+  <main class="game-container">
+    <section class="unit-controls">
+      <button id="barbarianButton" class="unit-button" data-unit="BARBARIAN">Barbarian (1)</button>
+      <button id="archerButton" class="unit-button" data-unit="ARCHER">Archer (2)</button>
+      <button id="horseButton" class="unit-button" data-unit="HORSE">Horse (3)</button>
+      <button id="spawnButton" class="spawn-button">Spawn (Space)</button>
+    </section>
 
-  <div id="gameControls">
-    <button id="fightButton">Fight!</button>
-    <button id="surrenderButton" disabled>Surrender</button>
-    <button id="restartButton" disabled>Restart</button>
-    <button id="soundToggleButton">Sound: On</button>
-  </div>
+    <section class="game-canvas">
+      <canvas id="gameCanvas" width="800" height="300"></canvas>
+      <div id="waveProgress" class="wave-progress">
+        <div id="waveProgressBar"></div>
+      </div>
+    </section>
 
-  <div id="feedbackMessage" style="display:none; color: #e74c3c; font-size: 16px; margin-top: 10px;"></div>
-  <div id="shop" style="display:none;"></div>
-  <div id="waveCooldown" style="display:none;"></div>
+    <section class="game-controls">
+      <button id="fightButton" class="control-button">Fight!</button>
+      <button id="surrenderButton" class="control-button" disabled>Surrender</button>
+      <button id="restartButton" class="control-button" disabled>Restart</button>
+      <button id="soundToggleButton" class="control-button">Sound: On</button>
+    </section>
+
+    <section id="shop" class="shop-panel"></section>
+    <div id="waveCooldown" class="wave-cooldown"></div>
+    <div id="feedbackMessage" class="feedback-message"></div>
+  </main>
+
+  <footer class="game-footer">
+    <p>Gold: <span id="goldDisplay">0</span> | Diamonds: <span id="diamondDisplay">0</span> | Wave: <span id="waveDisplay">1</span></p>
+  </footer>
 
   <!-- Audio elements -->
-  <audio id="spawnSound" src="/sounds/spawn.mp3"></audio>
-  <audio id="attackSound" src="/sounds/attack.mp3"></audio>
-  <audio id="winSound" src="/sounds/win.mp3"></audio>
-  <audio id="loseSound" src="/sounds/lose.mp3"></audio>
+  <audio id="spawnSound" src="/sounds/spawn.mp3" preload="auto"></audio>
+  <audio id="attackSound" src="/sounds/attack.mp3" preload="auto"></audio>
+  <audio id="winSound" src="/sounds/win.mp3" preload="auto"></audio>
+  <audio id="loseSound" src="/sounds/lose.mp3" preload="auto"></audio>
 
   <script src="script.js"></script>
-  <!-- Cloudflare script remains unchanged -->
 </body>
 </html>

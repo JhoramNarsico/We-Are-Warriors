@@ -5,22 +5,34 @@ const maxWaves = 50;
 let gameActive = false;
 let waveCooldown = false;
 let waveCooldownTimer = 0;
-let soundEnabled = true; // Audio toggle state
+let soundEnabled = true;
 
 // Canvas Setup
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
+
+function resizeCanvas() {
+  const maxWidth = window.innerWidth * 0.9;
+  const maxHeight = window.innerHeight * 0.5;
+  canvas.width = Math.min(800, maxWidth);
+  canvas.height = Math.min(300, maxHeight);
+  console.log("Canvas resized to:", canvas.width, canvas.height);
+}
+
+window.addEventListener("resize", resizeCanvas);
+resizeCanvas();
 
 // DOM Elements
 const fightButton = document.getElementById("fightButton");
 const surrenderButton = document.getElementById("surrenderButton");
 const restartButton = document.getElementById("restartButton");
 const soundToggleButton = document.getElementById("soundToggleButton");
-const barbarianButton = document.getElementById("barbarianButton");
-const archerButton = document.getElementById("archerButton");
-const horseButton = document.getElementById("horseButton");
 const spawnButton = document.getElementById("spawnButton");
 const feedbackMessage = document.getElementById("feedbackMessage");
+const goldDisplay = document.getElementById("goldDisplay");
+const diamondDisplay = document.getElementById("diamondDisplay");
+const waveDisplay = document.getElementById("waveDisplay");
+const unitButtons = document.querySelectorAll(".unit-button");
 
 // Audio Elements
 const spawnSound = document.getElementById("spawnSound");
@@ -28,7 +40,7 @@ const attackSound = document.getElementById("attackSound");
 const winSound = document.getElementById("winSound");
 const loseSound = document.getElementById("loseSound");
 
-// Unit Definitions (unchanged)
+// Unit Definitions
 const BASE_ENEMY_STATS = {
   BARBARIAN: { health: 15, damage: 3, speed: 1.1, reward: 1 },
   ARCHER: { health: 8, damage: 6, speed: 1.3, reward: 2 },
@@ -37,10 +49,10 @@ const BASE_ENEMY_STATS = {
 };
 
 const UNIT_TYPES = {
-  BARBARIAN: { ...BASE_ENEMY_STATS.BARBARIAN, name: "barbarian", color: "#3498db", cost: 5 },
-  ARCHER: { ...BASE_ENEMY_STATS.ARCHER, name: "archer", color: "#2ecc71", cost: 8 },
-  HORSE: { ...BASE_ENEMY_STATS.HORSE, name: "horse", color: "#a67c52", cost: 12 },
-  KNIGHT: { ...BASE_ENEMY_STATS.KNIGHT, name: "knight", color: "#e74c3c", cost: 15, unlocked: false }
+  BARBARIAN: { ...BASE_ENEMY_STATS.BARBARIAN, name: "Barbarian", color: "#3b5998", cost: 5 },
+  ARCHER: { ...BASE_ENEMY_STATS.ARCHER, name: "Archer", color: "#28a745", cost: 8 },
+  HORSE: { ...BASE_ENEMY_STATS.HORSE, name: "Horse", color: "#dc3545", cost: 12 },
+  KNIGHT: { ...BASE_ENEMY_STATS.KNIGHT, name: "Knight", color: "#ffd700", cost: 15, unlocked: false }
 };
 
 // Game Entities
@@ -55,14 +67,14 @@ let gold = 0;
 let diamonds = localStorage.getItem('warriorDiamonds') ? parseInt(localStorage.getItem('warriorDiamonds')) : 0;
 let selectedUnitType = UNIT_TYPES.BARBARIAN;
 
-// Upgrades (unchanged)
+// Upgrades
 let goldProductionRate = 800;
 let baseHealthUpgrades = parseInt(localStorage.getItem('warriorBaseHealthUpgrades')) || 0;
 let unitHealthUpgrades = parseInt(localStorage.getItem('warriorUnitHealthUpgrades')) || 0;
 let goldProductionUpgrades = parseInt(localStorage.getItem('warriorGoldProdUpgrades')) || 0;
 let unitDamageUpgrades = parseInt(localStorage.getItem('warriorUnitDamageUpgrades')) || 0;
 
-// Load saved upgrades (unchanged)
+// Load saved upgrades
 const savedDamage = localStorage.getItem('warriorUnitDamage');
 if (savedDamage) {
   const damage = JSON.parse(savedDamage);
@@ -77,12 +89,15 @@ if (localStorage.getItem('warriorKnightUnlocked') === 'true') {
   UNIT_TYPES.KNIGHT.unlocked = true;
 }
 
-// Gold production system (unchanged)
+// Gold production
 let goldInterval = setInterval(() => {
-  if (gameActive && !gameOver) gold += 1 + Math.floor(wave / 5);
+  if (gameActive && !gameOver) {
+    gold += 1 + Math.floor(wave / 5);
+    updateFooter();
+  }
 }, goldProductionRate);
 
-// Shop Items (unchanged)
+// Shop Items (unchanged from previous)
 const SHOP_ITEMS = {
   GOLD_PRODUCTION: {
     name: "Gold Production +",
@@ -97,10 +112,16 @@ const SHOP_ITEMS = {
         localStorage.setItem('warriorGoldProdUpgrades', goldProductionUpgrades);
         clearInterval(goldInterval);
         goldInterval = setInterval(() => {
-          if (gameActive && !gameOver) gold += 1 + Math.floor(wave / 5);
+          if (gameActive && !gameOver) {
+            gold += 1 + Math.floor(wave / 5);
+            updateFooter();
+          }
         }, goldProductionRate);
-        drawUI();
-        updateShopPrices();
+        updateShop();
+        updateFooter();
+        showFeedback("Gold production upgraded!");
+      } else {
+        showFeedback("Not enough diamonds!");
       }
     }
   },
@@ -115,8 +136,11 @@ const SHOP_ITEMS = {
         baseHealth += 25;
         baseHealthUpgrades++;
         localStorage.setItem('warriorBaseHealthUpgrades', baseHealthUpgrades);
-        drawUI();
-        updateShopPrices();
+        updateFooter();
+        updateShop();
+        showFeedback("Base health increased!");
+      } else {
+        showFeedback("Not enough diamonds!");
       }
     }
   },
@@ -130,8 +154,11 @@ const SHOP_ITEMS = {
         localStorage.setItem('warriorDiamonds', diamonds);
         unitHealthUpgrades++;
         localStorage.setItem('warriorUnitHealthUpgrades', unitHealthUpgrades);
-        drawUI();
-        updateShopPrices();
+        updateFooter();
+        updateShop();
+        showFeedback("Unit health increased!");
+      } else {
+        showFeedback("Not enough diamonds!");
       }
     }
   },
@@ -155,8 +182,11 @@ const SHOP_ITEMS = {
           knight: UNIT_TYPES.KNIGHT.damage
         }));
         localStorage.setItem('warriorUnitDamageUpgrades', unitDamageUpgrades);
-        drawUI();
-        updateShopPrices();
+        updateFooter();
+        updateShop();
+        showFeedback("Unit damage increased!");
+      } else {
+        showFeedback("Not enough diamonds!");
       }
     }
   },
@@ -171,8 +201,11 @@ const SHOP_ITEMS = {
         UNIT_TYPES.KNIGHT.unlocked = true;
         localStorage.setItem('warriorKnightUnlocked', 'true');
         addKnightButton();
-        drawUI();
-        updateShopPrices();
+        updateShop();
+        updateFooter();
+        showFeedback("Knight unlocked!");
+      } else {
+        showFeedback("Not enough diamonds!");
       }
     }
   }
@@ -181,7 +214,7 @@ const SHOP_ITEMS = {
 // Initialize Game
 function initGame() {
   wave = 1;
-  baseHealth = Math.max(150 + (baseHealthUpgrades * 25), 0);
+  baseHealth = 150 + (baseHealthUpgrades * 25);
   enemyBaseHealth = 150;
   gameOver = false;
   units = [];
@@ -190,23 +223,25 @@ function initGame() {
   waveCooldown = false;
   waveStarted = false;
   waveCooldownTimer = 0;
-  
-  // Apply upgrades
+
   goldProductionRate = Math.max(300, 800 - (goldProductionUpgrades * 50));
   clearInterval(goldInterval);
   goldInterval = setInterval(() => {
-    if (gameActive && !gameOver) gold += 1 + Math.floor(wave / 5);
+    if (gameActive && !gameOver) {
+      gold += 1 + Math.floor(wave / 5);
+      updateFooter();
+    }
   }, goldProductionRate);
-  
-  updateShopPrices();
-  drawUI();
+
+  updateShop();
+  updateFooter();
+  updateUnitSelectionUI();
 }
 
-// Game Functions (unchanged)
+// Game Functions
 function getScaledEnemyStats(type, currentWave) {
   const healthScale = Math.pow(1.18, currentWave - 1);
   const damageScale = Math.pow(1.14, currentWave - 1);
-  
   return {
     health: Math.floor(BASE_ENEMY_STATS[type].health * healthScale),
     damage: Math.floor(BASE_ENEMY_STATS[type].damage * damageScale),
@@ -217,8 +252,7 @@ function getScaledEnemyStats(type, currentWave) {
 
 function spawnWave(waveNum) {
   if (waveNum > maxWaves) {
-    console.log("Win condition reached, soundEnabled:", soundEnabled);
-    drawGameOver("CONGRATULATIONS! YOU WON!");
+    drawGameOver("Victory!");
     gameOver = true;
     if (soundEnabled) winSound.play().catch(e => console.error("Win sound error:", e));
     restartButton.disabled = false;
@@ -232,8 +266,9 @@ function spawnWave(waveNum) {
 
   for (let i = 0; i < barbarianCount; i++) {
     const stats = getScaledEnemyStats("BARBARIAN", waveNum);
-    enemyUnits.push({ 
-      x: 750, y: 100 + (i % 3) * 50,
+    enemyUnits.push({
+      x: canvas.width * 0.9375, // Scales to 750/800
+      y: canvas.height * 0.333 + (i % 3) * (canvas.height * 0.166),
       type: { ...UNIT_TYPES.BARBARIAN, ...stats },
       hp: stats.health,
       speed: stats.speed,
@@ -242,11 +277,11 @@ function spawnWave(waveNum) {
       opacity: 1
     });
   }
-
   for (let i = 0; i < archerCount; i++) {
     const stats = getScaledEnemyStats("ARCHER", waveNum);
-    enemyUnits.push({ 
-      x: 750, y: 100 + (i % 3) * 50,
+    enemyUnits.push({
+      x: canvas.width * 0.9375,
+      y: canvas.height * 0.333 + (i % 3) * (canvas.height * 0.166),
       type: { ...UNIT_TYPES.ARCHER, ...stats },
       hp: stats.health,
       speed: stats.speed,
@@ -255,11 +290,11 @@ function spawnWave(waveNum) {
       opacity: 1
     });
   }
-
   for (let i = 0; i < horseCount; i++) {
     const stats = getScaledEnemyStats("HORSE", waveNum);
-    enemyUnits.push({ 
-      x: 750, y: 100 + (i % 3) * 50,
+    enemyUnits.push({
+      x: canvas.width * 0.9375,
+      y: canvas.height * 0.333 + (i % 3) * (canvas.height * 0.166),
       type: { ...UNIT_TYPES.HORSE, ...stats },
       hp: stats.health,
       speed: stats.speed,
@@ -268,11 +303,11 @@ function spawnWave(waveNum) {
       opacity: 1
     });
   }
-
   for (let i = 0; i < knightCount; i++) {
     const stats = getScaledEnemyStats("KNIGHT", waveNum);
-    enemyUnits.push({ 
-      x: 750, y: 100 + (i % 3) * 50,
+    enemyUnits.push({
+      x: canvas.width * 0.9375,
+      y: canvas.height * 0.333 + (i % 3) * (canvas.height * 0.166),
       type: { ...UNIT_TYPES.KNIGHT, ...stats },
       hp: stats.health,
       speed: stats.speed,
@@ -287,187 +322,130 @@ function spawnWave(waveNum) {
 
 // Drawing Functions
 function drawBase(x, color, health) {
-  // Draw tower-like base
-  ctx.fillStyle = "#666";
-  ctx.fillRect(x - 10, 80, 60, 120); // Base foundation
-  ctx.fillStyle = color;
-  ctx.fillRect(x, 90, 40, 100); // Main tower
+  const scaledX = x * (canvas.width / 800);
+  const baseWidth = 70 * (canvas.width / 800);
+  const baseHeight = 130 * (canvas.height / 300);
   ctx.fillStyle = "#333";
-  ctx.fillRect(x + 5, 100, 30, 80); // Door
-  ctx.fillStyle = "#000";
-  ctx.font = "14px Arial";
-  ctx.fillText("HP: " + Math.max(0, health), x - 10, 75);
+  ctx.fillRect(scaledX - baseWidth / 2, canvas.height * 0.233, baseWidth, baseHeight);
+  ctx.fillStyle = color;
+  ctx.fillRect(scaledX - 20 * (canvas.width / 800), canvas.height * 0.267, 40 * (canvas.width / 800), 110 * (canvas.height / 300));
+  ctx.fillStyle = "#222";
+  ctx.fillRect(scaledX - 15 * (canvas.width / 800), canvas.height * 0.3, 30 * (canvas.width / 800), 80 * (canvas.height / 300));
+
   const healthPercentage = Math.max(0, health / (150 + (baseHealthUpgrades * 25)));
   ctx.fillStyle = "red";
-  ctx.fillRect(x - 10, 60, 60, 5);
-  ctx.fillStyle = healthPercentage > 0.5 ? "lime" : healthPercentage > 0.2 ? "yellow" : "red";
-  ctx.fillRect(x - 10, 60, 60 * healthPercentage, 5);
+  ctx.fillRect(scaledX - baseWidth / 2, canvas.height * 0.2, baseWidth, 8 * (canvas.height / 300));
+  ctx.fillStyle = healthPercentage > 0.5 ? "#28a745" : healthPercentage > 0.2 ? "#ffd700" : "#dc3545";
+  ctx.fillRect(scaledX - baseWidth / 2, canvas.height * 0.2, baseWidth * healthPercentage, 8 * (canvas.height / 300));
+
+  ctx.fillStyle = "#fff";
+  ctx.font = `${14 * (canvas.width / 800)}px Roboto`;
+  ctx.fillText(`HP: ${Math.max(0, health)}`, scaledX - baseWidth / 2, canvas.height * 0.183);
 }
 
 function drawUnit(unit) {
-  const size = 12; // Radius for circular units
-  // Shadow
-  ctx.fillStyle = "rgba(0,0,0,0.3)";
+  console.log("Drawing unit:", unit.type.name, "at", unit.x, unit.y);
+  const size = 15 * (canvas.width / 800);
+  ctx.fillStyle = "rgba(0,0,0,0.4)";
   ctx.beginPath();
-  ctx.arc(unit.x + 2 + size, unit.y + 2 + size, size, 0, Math.PI * 2);
+  ctx.arc(unit.x + 2 * (canvas.width / 800) + size, unit.y + 2 * (canvas.height / 300) + size, size, 0, Math.PI * 2);
   ctx.fill();
-  // Unit circle
+
   ctx.fillStyle = unit.type.color;
   ctx.globalAlpha = unit.opacity || 1;
   ctx.beginPath();
   ctx.arc(unit.x + size, unit.y + size, size, 0, Math.PI * 2);
   ctx.fill();
   ctx.globalAlpha = 1;
-  // Health bar
+
   const maxHealth = unit.maxHp || (unit.type.health + (unitHealthUpgrades * 3));
   const healthPercentage = Math.max(0, unit.hp / maxHealth);
-  ctx.fillStyle = "rgba(0,0,0,0.7)";
-  ctx.fillRect(unit.x - 2, unit.y - 10, size * 2 + 4, 6);
-  ctx.fillStyle = healthPercentage > 0.6 ? "#2ecc71" : 
-                  healthPercentage > 0.3 ? "#f39c12" : "#e74c3c";
-  ctx.fillRect(unit.x - 2, unit.y - 10, (size * 2 + 4) * healthPercentage, 6);
-  // Name and HP
+  ctx.fillStyle = "rgba(0,0,0,0.8)";
+  ctx.fillRect(unit.x - 5 * (canvas.width / 800), unit.y - 12 * (canvas.height / 300), size * 2 + 10 * (canvas.width / 800), 6 * (canvas.height / 300));
+  ctx.fillStyle = healthPercentage > 0.6 ? "#28a745" : healthPercentage > 0.3 ? "#ffd700" : "#dc3545";
+  ctx.fillRect(unit.x - 5 * (canvas.width / 800), unit.y - 12 * (canvas.height / 300), (size * 2 + 10 * (canvas.width / 800)) * healthPercentage, 6 * (canvas.height / 300));
+
   ctx.fillStyle = "#fff";
-  ctx.font = "bold 12px Arial";
-  ctx.fillText(unit.type.name.charAt(0).toUpperCase(), unit.x + 7, unit.y + 17);
-  ctx.font = "bold 10px Arial";
-  ctx.fillText(`${Math.floor(unit.hp)}/${Math.floor(maxHealth)}`, unit.x, unit.y - 13);
+  ctx.font = `${12 * (canvas.width / 800)}px Roboto`;
+  ctx.textAlign = "center";
+  ctx.fillText(unit.type.name.charAt(0).toUpperCase(), unit.x + size, unit.y + size + 5 * (canvas.height / 300));
+  ctx.font = `${10 * (canvas.width / 800)}px Roboto`;
+  ctx.fillText(`${Math.floor(unit.hp)}/${Math.floor(maxHealth)}`, unit.x + size, unit.y - 15 * (canvas.height / 300));
+  ctx.textAlign = "left";
 }
 
 function drawGameOver(message) {
-  ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
-  ctx.fillRect(canvas.width / 2 - 180, canvas.height / 2 - 50, 360, 100);
-  ctx.fillStyle = "#fff";
-  ctx.font = "32px Arial";
+  ctx.fillStyle = "rgba(0, 0, 0, 0.9)";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "#ffd700";
+  ctx.font = `${36 * (canvas.width / 800)}px Roboto`;
   ctx.textAlign = "center";
   ctx.fillText(message, canvas.width / 2, canvas.height / 2);
-  ctx.font = "20px Arial";
-  ctx.fillText(`Reached Wave: ${wave}`, canvas.width / 2, canvas.height / 2 + 30);
+  ctx.font = `${20 * (canvas.width / 800)}px Roboto`;
+  ctx.fillText(`Reached Wave: ${wave}`, canvas.width / 2, canvas.height / 2 + 40 * (canvas.height / 300));
   ctx.textAlign = "left";
-  restartButton.disabled = false;
 }
 
 function drawWaveCooldown(seconds) {
   const cooldownElement = document.getElementById("waveCooldown");
-  cooldownElement.textContent = `Next wave in ${seconds}s`;
+  cooldownElement.textContent = `Next Wave in ${seconds}s`;
   cooldownElement.style.display = "block";
-  cooldownElement.style.color = seconds <= 1 ? "#e74c3c" : seconds <= 2 ? "#f39c12" : "#2ecc71";
+  cooldownElement.style.color = seconds <= 1 ? "#dc3545" : seconds <= 2 ? "#ffd700" : "#28a745";
 }
 
 function hideWaveCooldown() {
   document.getElementById("waveCooldown").style.display = "none";
 }
 
-function drawGold() {
-  ctx.fillStyle = "#f0f0f0";
-  ctx.fillRect(5, canvas.height - 85, 180, 25);
-  ctx.fillStyle = "#f1c40f";
-  ctx.font = "bold 20px Arial";
-  ctx.fillText("Gold: " + Math.max(0, gold), 10, canvas.height - 70);
-}
-
-function drawDiamonds() {
-  ctx.fillStyle = "#f0f0f0";
-  ctx.fillRect(5, canvas.height - 55, 180, 25);
-  ctx.fillStyle = "#1abc9c";
-  ctx.font = "bold 20px Arial";
-  ctx.fillText("Diamonds: " + Math.max(0, diamonds), 10, canvas.height - 40);
+function updateFooter() {
+  goldDisplay.textContent = Math.max(0, gold);
+  diamondDisplay.textContent = Math.max(0, diamonds);
+  waveDisplay.textContent = wave;
 }
 
 function drawWaveProgress() {
   const progress = (wave - 1) / maxWaves;
-  const progressBar = document.getElementById("waveProgressBar") || document.createElement("div");
-  progressBar.id = "waveProgressBar";
+  const progressBar = document.getElementById("waveProgressBar");
   progressBar.style.width = `${progress * 100}%`;
-  if (!document.getElementById("waveProgress")) {
-    const progressContainer = document.createElement("div");
-    progressContainer.id = "waveProgress";
-    progressContainer.appendChild(progressBar);
-    document.body.insertBefore(progressContainer, document.getElementById("shop"));
-  }
 }
 
-function drawUI() {
-  ctx.fillStyle = "#f0f0f0";
-  ctx.fillRect(0, 0, canvas.width, 60);
-  ctx.fillStyle = "#34495e";
-  ctx.fillRect(canvas.width / 2 - 60, 5, 120, 30);
-  ctx.fillStyle = "#fff";
-  ctx.font = "bold 20px Arial";
-  ctx.textAlign = "center";
-  ctx.fillText("Wave: " + wave, canvas.width / 2, 28);
-  ctx.textAlign = "left";
-  ctx.fillStyle = "#f0f0f0";
-  ctx.fillRect(0, 10, 220, 50);
-  ctx.fillStyle = "#ecf0f1";
-  ctx.fillRect(5, 15, 210, 40);
-  ctx.fillStyle = "#2c3e50";
-  ctx.font = "bold 16px Arial";
-  ctx.fillText("Selected: " + selectedUnitType.name, 10, 35);
-  ctx.fillText("Cost: " + selectedUnitType.cost + " gold", 10, 55);
-  drawGold();
-  drawDiamonds();
-  drawWaveProgress();
-}
-
-// Shop Functions (unchanged)
-function updateShopPrices() {
+// Shop Functions
+function updateShop() {
   const shop = document.getElementById("shop");
-  shop.innerHTML = "<h3 style='color:#2c3e50;'>Upgrades Shop</h3>";
-  
+  shop.innerHTML = "<h3>Upgrades</h3>";
   for (let key in SHOP_ITEMS) {
-    const item = SHOP_ITEMS[key];
     if (key === "NEW_UNIT" && UNIT_TYPES.KNIGHT.unlocked) continue;
-    
-    const btn = document.createElement("button");
-    btn.innerText = `${item.name} - ${item.getPrice()} diamonds`;
-    btn.title = item.description;
-    btn.style.cssText = `
-      margin: 5px;
-      padding: 8px 12px;
-      background: #3498db;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 14px;
-      transition: all 0.2s;
-    `;
-    btn.onmouseover = () => btn.style.background = "#2980b9";
-    btn.onmouseout = () => btn.style.background = "#3498db";
-    btn.onclick = item.apply.bind(item);
-    
+    const item = SHOP_ITEMS[key];
     const container = document.createElement("div");
-    container.style.margin = "10px 0";
-    const desc = document.createElement("div");
-    desc.textContent = item.description;
-    desc.style.fontSize = "12px";
-    desc.style.color = "#7f8c8d";
-    container.appendChild(btn);
-    container.appendChild(desc);
+    container.className = "shop-item";
+    container.innerHTML = `
+      <button>${item.name} - ${item.getPrice()} Diamonds</button>
+      <p>${item.description}</p>
+    `;
+    container.querySelector("button").onclick = item.apply.bind(item);
     shop.appendChild(container);
   }
 }
 
 // Unit Functions
 function spawnUnit() {
+  console.log("Attempting to spawn unit:", selectedUnitType.name, "Gold:", gold, "Game Active:", gameActive, "Game Over:", gameOver);
   if (gameActive && !gameOver) {
     if (gold >= selectedUnitType.cost) {
       gold -= selectedUnitType.cost;
-      const newUnit = { 
-        x: 50, 
-        y: 100 + (units.length % 3) * 50,
+      const newUnit = {
+        x: canvas.width * 0.0625,
+        y: canvas.height * 0.333 + (units.length % 3) * (canvas.height * 0.166),
         type: selectedUnitType,
         hp: selectedUnitType.health + (unitHealthUpgrades * 3),
         speed: selectedUnitType.speed,
         damage: selectedUnitType.damage,
         maxHp: selectedUnitType.health + (unitHealthUpgrades * 3),
-        opacity: 0 // For fade-in animation
+        opacity: 0
       };
       units.push(newUnit);
-      console.log("Spawning unit, soundEnabled:", soundEnabled);
+      console.log("Unit spawned:", newUnit);
       if (soundEnabled) spawnSound.play().catch(e => console.error("Spawn sound error:", e));
-      // Animate spawn
       let opacity = 0;
       const fadeInterval = setInterval(() => {
         opacity += 0.1;
@@ -477,46 +455,36 @@ function spawnUnit() {
           clearInterval(fadeInterval);
         }
       }, 50);
+      updateFooter();
     } else {
       showFeedback("Not enough gold!");
     }
+  } else {
+    showFeedback("Game not active or over!");
   }
 }
 
 function showFeedback(message) {
   feedbackMessage.textContent = message;
-  feedbackMessage.style.display = "block";
-  feedbackMessage.style.opacity = "1";
+  feedbackMessage.classList.add("show");
   setTimeout(() => {
-    feedbackMessage.style.opacity = "0";
-    setTimeout(() => {
-      feedbackMessage.style.display = "none";
-    }, 500);
+    feedbackMessage.classList.remove("show");
   }, 2000);
 }
 
 function showDamageNumber(x, y, amount, isEnemy) {
-  console.log("Playing attack sound, isEnemy:", isEnemy, "soundEnabled:", soundEnabled);
   if (soundEnabled && !isEnemy) attackSound.play().catch(e => console.error("Attack sound error:", e));
   const damageText = document.createElement("div");
   damageText.textContent = `-${Math.floor(amount)}`;
-  damageText.style.position = "absolute";
+  damageText.className = "damage-text";
   damageText.style.left = `${x + canvas.offsetLeft}px`;
   damageText.style.top = `${y + canvas.offsetTop - 30}px`;
-  damageText.style.color = isEnemy ? "#e74c3c" : "#f1c40f";
-  damageText.style.fontWeight = "bold";
-  damageText.style.fontSize = "16px";
-  damageText.style.pointerEvents = "none";
-  damageText.style.textShadow = "1px 1px 2px #000";
-  damageText.style.transition = "all 0.5s";
-  damageText.style.opacity = "1";
+  damageText.style.color = isEnemy ? "#dc3545" : "#ffd700";
   document.body.appendChild(damageText);
-  
   setTimeout(() => {
     damageText.style.top = `${y + canvas.offsetTop - 60}px`;
     damageText.style.opacity = "0";
   }, 50);
-  
   setTimeout(() => {
     document.body.removeChild(damageText);
   }, 1000);
@@ -526,19 +494,128 @@ function showDamageNumber(x, y, amount, isEnemy) {
 function update() {
   if (!gameActive || gameOver) return;
 
-  ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear canvas
-  drawBase(20, "#3498db", baseHealth);
-  drawBase(750, "#e74c3c", enemyBaseHealth);
-  drawUI();
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  drawBase(20, "#3b5998", baseHealth);
+  drawBase(750, "#dc3545", enemyBaseHealth);
+
+  units.forEach((unit, index) => {
+    if (unit.hp <= 0) {
+      units.splice(index, 1);
+      return;
+    }
+
+    let closestEnemy = null;
+    let closestDistance = Infinity;
+
+    enemyUnits.forEach(enemy => {
+      const dx = enemy.x - unit.x;
+      const dy = enemy.y - unit.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      if (distance < closestDistance) {
+        closestDistance = distance;
+        closestEnemy = enemy;
+      }
+    });
+
+    if (closestEnemy) {
+      if (closestDistance <= 30 * (canvas.width / 800)) {
+        if (!unit.lastAttack || Date.now() - unit.lastAttack > 1000) {
+          unit.lastAttack = Date.now();
+          closestEnemy.hp = Math.max(0, closestEnemy.hp - unit.damage);
+          showDamageNumber(closestEnemy.x, closestEnemy.y, unit.damage, false);
+          if (closestEnemy.hp > 0) {
+            unit.hp = Math.max(0, unit.hp - closestEnemy.damage * 0.7);
+            showDamageNumber(unit.x, unit.y, closestEnemy.damage * 0.7, true);
+          }
+          if (closestEnemy.hp <= 0) {
+            const enemyIndex = enemyUnits.indexOf(closestEnemy);
+            if (enemyIndex !== -1) {
+              diamonds = Math.max(0, diamonds + closestEnemy.type.reward);
+              localStorage.setItem('warriorDiamonds', diamonds);
+              enemyUnits.splice(enemyIndex, 1);
+              updateFooter();
+            }
+          }
+        }
+      } else {
+        const dx = closestEnemy.x - unit.x;
+        const dy = closestEnemy.y - unit.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        unit.x += (dx / distance) * unit.speed * (canvas.width / 800);
+        unit.y += (dy / distance) * unit.speed * (canvas.height / 300);
+      }
+    } else {
+      if (unit.x < canvas.width * 0.9125) {
+        unit.x += unit.speed * (canvas.width / 800);
+      } else {
+        enemyBaseHealth = Math.max(0, enemyBaseHealth - unit.damage);
+        showDamageNumber(canvas.width * 0.9375, canvas.height * 0.5, unit.damage, false);
+        units.splice(index, 1);
+      }
+    }
+
+    drawUnit(unit);
+  });
+
+  enemyUnits.forEach((unit, index) => {
+    if (unit.hp <= 0) {
+      diamonds = Math.max(0, diamonds + unit.type.reward);
+      localStorage.setItem('warriorDiamonds', diamonds);
+      enemyUnits.splice(index, 1);
+      updateFooter();
+      return;
+    }
+
+    let closestAlly = null;
+    let closestDistance = Infinity;
+
+    units.forEach(ally => {
+      const dx = ally.x - unit.x;
+      const dy = ally.y - unit.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      if (distance < closestDistance) {
+        closestDistance = distance;
+        closestAlly = ally;
+      }
+    });
+
+    if (closestAlly) {
+      if (closestDistance <= 30 * (canvas.width / 800)) {
+        if (!unit.lastAttack || Date.now() - unit.lastAttack > 1000) {
+          unit.lastAttack = Date.now();
+          closestAlly.hp = Math.max(0, closestAlly.hp - unit.damage);
+          showDamageNumber(closestAlly.x, closestAlly.y, unit.damage, true);
+          if (closestAlly.hp > 0) {
+            unit.hp = Math.max(0, unit.hp - closestAlly.damage * 0.7);
+            showDamageNumber(unit.x, unit.y, closestAlly.damage * 0.7, false);
+          }
+        }
+      } else {
+        const dx = closestAlly.x - unit.x;
+        const dy = closestAlly.y - unit.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        unit.x += (dx / distance) * unit.speed * (canvas.width / 800);
+        unit.y += (dy / distance) * unit.speed * (canvas.height / 300);
+      }
+    } else {
+      if (unit.x > canvas.width * 0.0625) {
+        unit.x -= unit.speed * (canvas.width / 800);
+      } else {
+        baseHealth = Math.max(0, baseHealth - unit.damage);
+        showDamageNumber(canvas.width * 0.025, canvas.height * 0.5, unit.damage, true);
+        enemyUnits.splice(index, 1);
+      }
+    }
+
+    drawUnit(unit);
+  });
 
   if (!waveStarted && enemyUnits.length === 0 && !waveCooldown) {
     waveCooldown = true;
     waveCooldownTimer = 3;
-    
     const interval = setInterval(() => {
       waveCooldownTimer--;
       drawWaveCooldown(waveCooldownTimer);
-      
       if (waveCooldownTimer <= 0) {
         clearInterval(interval);
         hideWaveCooldown();
@@ -548,142 +625,15 @@ function update() {
     }, 1000);
   }
 
-  // Player units behavior
-  units.forEach((unit, index) => {
-    if (unit.hp <= 0) {
-      units.splice(index, 1);
-      return;
-    }
-    
-    // Find closest enemy
-    let closestEnemy = null;
-    let closestDistance = Infinity;
-    
-    enemyUnits.forEach(enemy => {
-      const dx = enemy.x - unit.x;
-      const dy = enemy.y - unit.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-      
-      if (distance < closestDistance) {
-        closestDistance = distance;
-        closestEnemy = enemy;
-      }
-    });
-    
-    if (closestEnemy) {
-      // Attack if in range
-      if (closestDistance <= 30) {
-        if (!unit.lastAttack || Date.now() - unit.lastAttack > 1000) {
-          unit.lastAttack = Date.now();
-          closestEnemy.hp = Math.max(0, closestEnemy.hp - unit.damage);
-          showDamageNumber(closestEnemy.x, closestEnemy.y, unit.damage, false);
-          
-          // Enemy counterattacks
-          if (closestEnemy.hp > 0) {
-            unit.hp = Math.max(0, unit.hp - closestEnemy.damage * 0.7);
-            showDamageNumber(unit.x, unit.y, closestEnemy.damage * 0.7, true);
-          }
-          
-          if (closestEnemy.hp <= 0) {
-            const enemyIndex = enemyUnits.indexOf(closestEnemy);
-            if (enemyIndex !== -1) {
-              diamonds = Math.max(0, diamonds + closestEnemy.type.reward);
-              localStorage.setItem('warriorDiamonds', diamonds);
-              enemyUnits.splice(enemyIndex, 1);
-            }
-          }
-        }
-      } else {
-        // Move toward enemy
-        const dx = closestEnemy.x - unit.x;
-        const dy = closestEnemy.y - unit.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        unit.x += (dx / distance) * unit.speed;
-        unit.y += (dy / distance) * unit.speed;
-      }
-    } else {
-      // Move toward enemy base
-      if (unit.x < 730) {
-        unit.x += unit.speed;
-      } else {
-        enemyBaseHealth = Math.max(0, enemyBaseHealth - unit.damage);
-        showDamageNumber(750, 150, unit.damage, false);
-        units.splice(index, 1);
-      }
-    }
-    
-    drawUnit(unit);
-  });
-
-  // Enemy units behavior
-  enemyUnits.forEach((unit, index) => {
-    if (unit.hp <= 0) {
-      diamonds = Math.max(0, diamonds + unit.type.reward);
-      localStorage.setItem('warriorDiamonds', diamonds);
-      enemyUnits.splice(index, 1);
-      return;
-    }
-    
-    // Find closest player unit
-    let closestAlly = null;
-    let closestDistance = Infinity;
-    
-    units.forEach(ally => {
-      const dx = ally.x - unit.x;
-      const dy = ally.y - unit.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-      
-      if (distance < closestDistance) {
-        closestDistance = distance;
-        closestAlly = ally;
-      }
-    });
-    
-    if (closestAlly) {
-      // Attack if in range
-      if (closestDistance <= 30) {
-        if (!unit.lastAttack || Date.now() - unit.lastAttack > 1000) {
-          unit.lastAttack = Date.now();
-          closestAlly.hp = Math.max(0, closestAlly.hp - unit.damage);
-          showDamageNumber(closestAlly.x, closestAlly.y, unit.damage, true);
-          
-          // Ally counterattacks
-          if (closestAlly.hp > 0) {
-            unit.hp = Math.max(0, unit.hp - closestAlly.damage * 0.7);
-            showDamageNumber(unit.x, unit.y, closestAlly.damage * 0.7, false);
-          }
-        }
-      } else {
-        // Move toward ally
-        const dx = closestAlly.x - unit.x;
-        const dy = closestAlly.y - unit.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        unit.x += (dx / distance) * unit.speed;
-        unit.y += (dy / distance) * unit.speed;
-      }
-    } else {
-      // Move toward player base
-      if (unit.x > 50) {
-        unit.x -= unit.speed;
-      } else {
-        baseHealth = Math.max(0, baseHealth - unit.damage);
-        showDamageNumber(20, 150, unit.damage, true);
-        enemyUnits.splice(index, 1);
-      }
-    }
-    
-    drawUnit(unit);
-  });
-
   if (enemyUnits.length === 0 && waveStarted) {
     wave++;
     waveStarted = false;
     gold = Math.max(0, gold + 5 + Math.floor(wave * 0.5));
+    updateFooter();
   }
 
   if (baseHealth <= 0) {
-    console.log("Lose condition reached, soundEnabled:", soundEnabled);
-    drawGameOver("DEFEAT!");
+    drawGameOver("Defeat!");
     gameOver = true;
     if (soundEnabled) loseSound.play().catch(e => console.error("Lose sound error:", e));
     restartButton.disabled = false;
@@ -691,8 +641,7 @@ function update() {
   }
 
   if (wave > maxWaves) {
-    console.log("Victory condition reached, soundEnabled:", soundEnabled);
-    drawGameOver("VICTORY!");
+    drawGameOver("Victory!");
     gameOver = true;
     if (soundEnabled) winSound.play().catch(e => console.error("Win sound error:", e));
     restartButton.disabled = false;
@@ -707,58 +656,34 @@ function addKnightButton() {
   if (!document.getElementById("knightButton")) {
     const knightButton = document.createElement("button");
     knightButton.id = "knightButton";
+    knightButton.className = "unit-button";
+    knightButton.dataset.unit = "KNIGHT";
     knightButton.textContent = "Knight (4)";
-    knightButton.style.cssText = `
-      padding: 10px 20px;
-      margin: 5px;
-      background: #e74c3c;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 14px;
-      transition: all 0.2s;
-    `;
-    knightButton.onmouseover = () => knightButton.style.background = "#c0392b";
-    knightButton.onmouseout = () => knightButton.style.background = "#e74c3c";
-    knightButton.onclick = () => {
+    document.querySelector(".unit-controls").appendChild(knightButton);
+    knightButton.addEventListener("click", () => {
       selectedUnitType = UNIT_TYPES.KNIGHT;
       updateUnitSelectionUI();
-    };
-    document.getElementById("unitControls").appendChild(knightButton);
+    });
   }
 }
 
 function updateUnitSelectionUI() {
-  [barbarianButton, archerButton, horseButton].forEach(btn => {
-    btn.style.background = "#3498db";
-  });
-  
-  if (UNIT_TYPES.KNIGHT.unlocked) {
-    const knightButton = document.getElementById("knightButton");
-    if (knightButton) knightButton.style.background = "#e74c3c";
-  }
-  
-  if (selectedUnitType === UNIT_TYPES.BARBARIAN) {
-    barbarianButton.style.background = "#2980b9";
-  } else if (selectedUnitType === UNIT_TYPES.ARCHER) {
-    archerButton.style.background = "#2980b9";
-  } else if (selectedUnitType === UNIT_TYPES.HORSE) {
-    horseButton.style.background = "#2980b9";
-  } else if (selectedUnitType === UNIT_TYPES.KNIGHT && document.getElementById("knightButton")) {
-    document.getElementById("knightButton").style.background = "#c0392b";
-  }
+  unitButtons.forEach(btn => btn.classList.remove("active"));
+  const activeButton = Array.from(unitButtons).find(btn => btn.dataset.unit === selectedUnitType.name.toUpperCase());
+  if (activeButton) activeButton.classList.add("active");
 }
 
 // Event Listeners
 fightButton.addEventListener("click", () => {
+  console.log("Fight button clicked");
   gameActive = true;
   fightButton.disabled = true;
   surrenderButton.disabled = false;
   restartButton.disabled = true;
   document.getElementById("shop").style.display = "none";
   initGame();
-  update();
+  console.log("Starting update loop");
+  requestAnimationFrame(update);
 });
 
 surrenderButton.addEventListener("click", () => {
@@ -778,7 +703,7 @@ restartButton.addEventListener("click", () => {
   restartButton.disabled = true;
   document.getElementById("shop").style.display = "none";
   initGame();
-  update();
+  requestAnimationFrame(update);
 });
 
 soundToggleButton.addEventListener("click", () => {
@@ -786,73 +711,48 @@ soundToggleButton.addEventListener("click", () => {
   soundToggleButton.textContent = `Sound: ${soundEnabled ? "On" : "Off"}`;
 });
 
-barbarianButton.addEventListener("click", () => {
-  selectedUnitType = UNIT_TYPES.BARBARIAN;
-  updateUnitSelectionUI();
-});
+if (!spawnButton) {
+  console.error("Spawn button not found!");
+} else {
+  spawnButton.addEventListener("click", () => {
+    console.log("Spawn button clicked");
+    spawnUnit();
+  });
+}
 
-archerButton.addEventListener("click", () => {
-  selectedUnitType = UNIT_TYPES.ARCHER;
-  updateUnitSelectionUI();
+unitButtons.forEach(button => {
+  button.addEventListener("click", () => {
+    selectedUnitType = UNIT_TYPES[button.dataset.unit];
+    updateUnitSelectionUI();
+  });
 });
-
-horseButton.addEventListener("click", () => {
-  selectedUnitType = UNIT_TYPES.HORSE;
-  updateUnitSelectionUI();
-});
-
-spawnButton.addEventListener("click", spawnUnit);
 
 document.addEventListener("keydown", (e) => {
-  if (e.key === "1") {
-    selectedUnitType = UNIT_TYPES.BARBARIAN;
+  if (e.key >= "1" && e.key <= "4") {
+    const units = ["BARBARIAN", "ARCHER", "HORSE", "KNIGHT"];
+    const index = parseInt(e.key) - 1;
+    if (index === 3 && !UNIT_TYPES.KNIGHT.unlocked) return;
+    selectedUnitType = UNIT_TYPES[units[index]];
     updateUnitSelectionUI();
   }
-  if (e.key === "2") {
-    selectedUnitType = UNIT_TYPES.ARCHER;
-    updateUnitSelectionUI();
+  if (e.key === " ") {
+    console.log("Spacebar pressed");
+    spawnUnit();
   }
-  if (e.key === "3") {
-    selectedUnitType = UNIT_TYPES.HORSE;
-    updateUnitSelectionUI();
-  }
-  if (UNIT_TYPES.KNIGHT.unlocked && e.key === "4") {
-    selectedUnitType = UNIT_TYPES.KNIGHT;
-    updateUnitSelectionUI();
-  }
-  if (e.key === " ") spawnUnit();
 });
 
-// Initialize the game
-if (UNIT_TYPES.KNIGHT.unlocked) {
-  addKnightButton();
-}
-updateShopPrices();
+// Initialize
+if (UNIT_TYPES.KNIGHT.unlocked) addKnightButton();
+updateShop();
 updateUnitSelectionUI();
+updateFooter();
 
-// Style buttons
-[fightButton, surrenderButton, barbarianButton, archerButton, horseButton, spawnButton, restartButton, soundToggleButton].forEach(btn => {
-  btn.style.cssText = `
-    padding: 10px 20px;
-    margin: 5px;
-    background: #3498db;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 14px;
-    transition: all 0.2s;
-  `;
-  btn.onmouseover = () => btn.style.background = "#2980b9";
-  btn.onmouseout = () => btn.style.background = "#3498db";
-});
-
-// Check audio file loading
+// Audio Check
 function checkAudioFiles() {
   [spawnSound, attackSound, winSound, loseSound].forEach(audio => {
     audio.addEventListener("error", () => {
       console.error(`Failed to load audio: ${audio.src}`);
-      showFeedback(`Audio file missing: ${audio.id}`);
+      showFeedback(`Audio error: ${audio.id}`);
     });
     audio.load();
   });
