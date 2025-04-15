@@ -531,6 +531,7 @@ function drawBase(x, color, health) {
 }
 
 function drawUnit(unit) {
+  console.log("Drawing unit:", unit.x, unit.y, unit.opacity);
   const size = 15 * (canvas.width / 800);
   ctx.fillStyle = "rgba(0,0,0,0.4)";
   ctx.beginPath();
@@ -633,16 +634,16 @@ function spawnUnit() {
         speed: Number(selectedUnitType.speed),
         damage: Number(selectedUnitType.damage),
         maxHp: Number(selectedUnitType.health) + (unitHealthUpgrades * 3),
-        opacity: 0,
-        fadeIn: true,
+        opacity: 1, // Ensure visibility
+        fadeIn: false, // Disable fade-in temporarily
         fadeTimer: 0,
         lane: lane,
         lastAttack: null
       };
-      if (isNaN(newUnit.hp) || isNaN(newUnit.speed) || isNaN(newUnit.damage)) {
-        console.error("Invalid unit stats:", newUnit);
-        showFeedback("Error spawning unit!");
-        return;
+      console.log("Unit spawn coordinates:", newUnit.x, newUnit.y, "Canvas size:", canvas.width, canvas.height);
+      if (newUnit.x < 0 || newUnit.x > canvas.width || newUnit.y < 0 || newUnit.y > canvas.height) {
+        console.error("Unit spawned outside canvas:", newUnit.x, newUnit.y);
+        showFeedback("Unit spawned off-screen!");
       }
       units.push(newUnit);
       if (soundEnabled) {
@@ -652,6 +653,7 @@ function spawnUnit() {
         });
       }
       updateFooter();
+      console.log("Spawned unit:", newUnit);
     } else {
       showFeedback("Not enough gold!");
     }
@@ -720,12 +722,14 @@ function showGameOverModal(message) {
 
 // Battle System
 function update() {
+  console.log("Update loop - gameActive:", gameActive, "gamePaused:", gamePaused, "gameOver:", gameOver, "Units:", units.length);
   if (!gameActive || gameOver || gamePaused) return;
 
   // Update spatial grid
   updateGrid();
 
-  // Update fading units
+  // Skip fade-in for now (commented out)
+  /*
   units.forEach(unit => {
     if (unit.fadeIn) {
       unit.fadeTimer += 1/60;
@@ -736,6 +740,7 @@ function update() {
       }
     }
   });
+  */
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   drawBase(20, "#3b5998", baseHealth);
@@ -772,7 +777,7 @@ function update() {
           showDamageNumber(closestEnemy.x, closestEnemy.y, unit.damage, false);
           if (closestEnemy.hp > 0) {
             unit.hp = Math.max(0, unit.hp - closestEnemy.damage * 0.7);
-            showDamageNumber(unit.x, unit.y, cresceEnemy.damage * 0.7, true);
+            showDamageNumber(unit.x, unit.y, closestEnemy.damage * 0.7, true);
           }
           if (closestEnemy.hp <= 0) {
             const enemyEntry = nearbyEnemies.find(e => e.unit === closestEnemy);
