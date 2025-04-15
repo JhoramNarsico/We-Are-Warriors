@@ -28,6 +28,7 @@
 
     <section class="game-controls">
       <button id="fightButton" class="control-button">Fight!</button>
+      <button id="pauseButton" class="control-button" disabled>Pause</button>
       <button id="surrenderButton" class="control-button" disabled>Surrender</button>
       <button id="restartButton" class="control-button" disabled>Restart</button>
       <button id="soundToggleButton" class="control-button">Sound: On</button>
@@ -36,6 +37,43 @@
     <section id="shop" class="shop-panel"></section>
     <div id="waveCooldown" class="wave-cooldown"></div>
     <div id="feedbackMessage" class="feedback-message"></div>
+
+    <!-- Pause Menu -->
+    <div id="pauseMenu" class="pause-menu" style="display: none;">
+      <div class="pause-menu-content">
+        <h2>Paused</h2>
+        <button id="resumeButton" class="control-button">Resume</button>
+        <button id="toggleShopButton" class="control-button">Show Shop</button>
+        <button id="surrenderPauseButton" class="control-button">Surrender</button>
+      </div>
+    </div>
+
+    <!-- Game Over Modal -->
+    <div id="gameOverModal" class="modal" style="display: none;">
+      <div class="modal-content">
+        <h2 id="gameOverMessage"></h2>
+        <p id="gameOverWave"></p>
+        <button id="gameOverRestartButton" class="control-button">Restart</button>
+        <button id="gameOverShopButton" class="control-button">Shop</button>
+      </div>
+    </div>
+
+    <!-- Tutorial Modal -->
+    <div id="tutorialModal" class="modal" style="display: none;">
+      <div class="modal-content">
+        <h2>Welcome to We Are Warriors!</h2>
+        <p>Use gold to spawn units (Barbarian, Archer, Horse, Knight) to fight enemy waves.</p>
+        <p><strong>Costs:</strong> Barbarian (5), Archer (8), Horse (12), Knight (15).</p>
+        <p><strong>Unit Roles:</strong><br>
+          - Barbarian: Balanced, low cost.<br>
+          - Archer: High damage, low health.<br>
+          - Horse: Fast, strong.<br>
+          - Knight: Tanky, high damage (unlockable).</p>
+        <p><strong>Waves:</strong> Survive 50 waves. Enemies get stronger each wave.</p>
+        <p><strong>Tip:</strong> Use diamonds to upgrade units and base in the shop.</p>
+        <button id="startTutorialButton" class="control-button">Start Game</button>
+      </div>
+    </div>
   </main>
 
   <footer class="game-footer">
@@ -43,10 +81,22 @@
   </footer>
 
   <!-- Audio elements -->
-  <audio id="spawnSound" src="/sounds/spawn.mp3" preload="auto"></audio>
-  <audio id="attackSound" src="/sounds/attack.mp3" preload="auto"></audio>
-  <audio id="winSound" src="/sounds/win.mp3" preload="auto"></audio>
-  <audio id="loseSound" src="/sounds/lose.mp3" preload="auto"></audio>
+  <audio id="spawnSound" preload="auto">
+    <source src="./sounds/spawn.mp3" type="audio/mpeg">
+    <source src="./sounds/spawn.ogg" type="audio/ogg">
+  </audio>
+  <audio id="attackSound" preload="auto">
+    <source src="./sounds/attack.mp3" type="audio/mpeg">
+    <source src="./sounds/attack.ogg" type="audio/ogg">
+  </audio>
+  <audio id="winSound" preload="auto">
+    <source src="./sounds/win.mp3" type="audio/mpeg">
+    <source src="./sounds/win.ogg" type="audio/ogg">
+  </audio>
+  <audio id="loseSound" preload="auto">
+    <source src="./sounds/lose.mp3" type="audio/mpeg">
+    <source src="./sounds/lose.ogg" type="audio/ogg">
+  </audio>
 
   <script src="script.js"></script>
 </body>

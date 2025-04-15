@@ -3,9 +3,11 @@ let wave = 1;
 let waveStarted = false;
 const maxWaves = 50;
 let gameActive = false;
+let gamePaused = false;
 let waveCooldown = false;
 let waveCooldownTimer = 0;
 let soundEnabled = true;
+let waveCooldownInterval = null;
 
 // Canvas Setup
 const canvas = document.getElementById("gameCanvas");
@@ -16,14 +18,69 @@ function resizeCanvas() {
   const maxHeight = window.innerHeight * 0.5;
   canvas.width = Math.min(800, maxWidth);
   canvas.height = Math.min(300, maxHeight);
-  console.log("Canvas resized to:", canvas.width, canvas.height);
 }
 
-window.addEventListener("resize", resizeCanvas);
+function debounce(func, wait) {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
+
+window.addEventListener("resize", debounce(resizeCanvas, 100));
 resizeCanvas();
+
+// Spatial Partitioning Grid
+const GRID_CELL_SIZE = 50;
+const grid = new Map();
+
+function getGridKey(x, y) {
+  const gridX = Math.floor(x / GRID_CELL_SIZE);
+  const gridY = Math.floor(y / GRID_CELL_SIZE);
+  return `${gridX},${gridY}`;
+}
+
+function updateGrid() {
+  grid.clear();
+  units.forEach((unit, index) => {
+    const key = getGridKey(unit.x, unit.y);
+    if (!grid.has(key)) grid.set(key, []);
+    grid.get(key).push({ unit, index, isAlly: true });
+  });
+  enemyUnits.forEach((unit, index) => {
+    const key = getGridKey(unit.x, unit.y);
+    if (!grid.has(key)) grid.set(key, []);
+    grid.get(key).push({ unit, index, isAlly: false });
+  });
+}
+
+function getNearbyUnits(x, y, isAlly) {
+  const gridX = Math.floor(x / GRID_CELL_SIZE);
+  const gridY = Math.floor(y / GRID_CELL_SIZE);
+  const nearbyUnits = [];
+  for (let dx = -1; dx <= 1; dx++) {
+    for (let dy = -1; dy <= 1; dy++) {
+      const key = `${gridX + dx},${gridY + dy}`;
+      if (grid.has(key)) {
+        grid.get(key).forEach(entry => {
+          if (entry.isAlly !== isAlly) {
+            nearbyUnits.push(entry);
+          }
+        });
+      }
+    }
+  }
+  return nearbyUnits;
+}
 
 // DOM Elements
 const fightButton = document.getElementById("fightButton");
+const pauseButton = document.getElementById("pauseButton");
 const surrenderButton = document.getElementById("surrenderButton");
 const restartButton = document.getElementById("restartButton");
 const soundToggleButton = document.getElementById("soundToggleButton");
@@ -33,6 +90,17 @@ const goldDisplay = document.getElementById("goldDisplay");
 const diamondDisplay = document.getElementById("diamondDisplay");
 const waveDisplay = document.getElementById("waveDisplay");
 const unitButtons = document.querySelectorAll(".unit-button");
+const pauseMenu = document.getElementById("pauseMenu");
+const resumeButton = document.getElementById("resumeButton");
+const toggleShopButton = document.getElementById("toggleShopButton");
+const surrenderPauseButton = document.getElementById("surrenderPauseButton");
+const gameOverModal = document.getElementById("gameOverModal");
+const gameOverMessage = document.getElementById("gameOverMessage");
+const gameOverWave = document.getElementById("gameOverWave");
+const gameOverRestartButton = document.getElementById("gameOverRestartButton");
+const gameOverShopButton = document.getElementById("gameOverShopButton");
+const tutorialModal = document.getElementById("tutorialModal");
+const startTutorialButton = document.getElementById("startTutorialButton");
 
 // Audio Elements
 const spawnSound = document.getElementById("spawnSound");
@@ -40,12 +108,17 @@ const attackSound = document.getElementById("attackSound");
 const winSound = document.getElementById("winSound");
 const loseSound = document.getElementById("loseSound");
 
+// Set default volume
+[spawnSound, attackSound, winSound, loseSound].forEach(audio => {
+  audio.volume = 0.5;
+});
+
 // Unit Definitions
 const BASE_ENEMY_STATS = {
-  BARBARIAN: { health: 15, damage: 3, speed: 1.1, reward: 1 },
-  ARCHER: { health: 8, damage: 6, speed: 1.3, reward: 2 },
-  HORSE: { health: 25, damage: 12, speed: 2.2, reward: 3 },
-  KNIGHT: { health: 40, damage: 8, speed: 1.5, reward: 5 }
+  BARBARIAN: { health: 15, damage: 3, speed: 1.1, reward: 2 },
+  ARCHER: { health: 8, damage: 6, speed: 1.3, reward: 3 },
+  HORSE: { health: 25, damage: 12, speed: 2.2, reward: 4 },
+  KNIGHT: { health: 40, damage: 8, speed: 1.5, reward: 6 }
 };
 
 const UNIT_TYPES = {
@@ -64,40 +137,65 @@ let gameOver = false;
 
 // Resources
 let gold = 0;
-let diamonds = localStorage.getItem('warriorDiamonds') ? parseInt(localStorage.getItem('warriorDiamonds')) : 0;
+let diamonds = 0;
+try {
+  diamonds = localStorage.getItem('warriorDiamonds') ? parseInt(localStorage.getItem('warriorDiamonds')) : 0;
+} catch (e) {
+  console.error("Failed to access localStorage:", e);
+  showFeedback("Storage unavailable, progress won't save.");
+}
 let selectedUnitType = UNIT_TYPES.BARBARIAN;
 
 // Upgrades
 let goldProductionRate = 800;
-let baseHealthUpgrades = parseInt(localStorage.getItem('warriorBaseHealthUpgrades')) || 0;
-let unitHealthUpgrades = parseInt(localStorage.getItem('warriorUnitHealthUpgrades')) || 0;
-let goldProductionUpgrades = parseInt(localStorage.getItem('warriorGoldProdUpgrades')) || 0;
-let unitDamageUpgrades = parseInt(localStorage.getItem('warriorUnitDamageUpgrades')) || 0;
+let baseHealthUpgrades = 0;
+let unitHealthUpgrades = 0;
+let goldProductionUpgrades = 0;
+let unitDamageUpgrades = 0;
+let baseDefenseUpgrades = 0;
+
+try {
+  baseHealthUpgrades = parseInt(localStorage.getItem('warriorBaseHealthUpgrades')) || 0;
+  unitHealthUpgrades = parseInt(localStorage.getItem('warriorUnitHealthUpgrades')) || 0;
+  goldProductionUpgrades = parseInt(localStorage.getItem('warriorGoldProdUpgrades')) || 0;
+  unitDamageUpgrades = parseInt(localStorage.getItem('warriorUnitDamageUpgrades')) || 0;
+  baseDefenseUpgrades = parseInt(localStorage.getItem('warriorBaseDefenseUpgrades')) || 0;
+} catch (e) {
+  console.error("Failed to access localStorage for upgrades:", e);
+}
 
 // Load saved upgrades
-const savedDamage = localStorage.getItem('warriorUnitDamage');
-if (savedDamage) {
-  const damage = JSON.parse(savedDamage);
-  UNIT_TYPES.BARBARIAN.damage = damage.barb || BASE_ENEMY_STATS.BARBARIAN.damage;
-  UNIT_TYPES.ARCHER.damage = damage.arch || BASE_ENEMY_STATS.ARCHER.damage;
-  UNIT_TYPES.HORSE.damage = damage.horse || BASE_ENEMY_STATS.HORSE.damage;
-  UNIT_TYPES.KNIGHT.damage = damage.knight || BASE_ENEMY_STATS.KNIGHT.damage;
+try {
+  const savedDamage = localStorage.getItem('warriorUnitDamage');
+  if (savedDamage) {
+    const damage = JSON.parse(savedDamage);
+    UNIT_TYPES.BARBARIAN.damage = damage.barb || BASE_ENEMY_STATS.BARBARIAN.damage;
+    UNIT_TYPES.ARCHER.damage = damage.arch || BASE_ENEMY_STATS.ARCHER.damage;
+    UNIT_TYPES.HORSE.damage = damage.horse || BASE_ENEMY_STATS.HORSE.damage;
+    UNIT_TYPES.KNIGHT.damage = damage.knight || BASE_ENEMY_STATS.KNIGHT.damage;
+  }
+} catch (e) {
+  console.error("Failed to load unit damage upgrades:", e);
 }
 
 // Check if knight is unlocked
-if (localStorage.getItem('warriorKnightUnlocked') === 'true') {
-  UNIT_TYPES.KNIGHT.unlocked = true;
+try {
+  if (localStorage.getItem('warriorKnightUnlocked') === 'true') {
+    UNIT_TYPES.KNIGHT.unlocked = true;
+  }
+} catch (e) {
+  console.error("Failed to check knight unlock status:", e);
 }
 
 // Gold production
 let goldInterval = setInterval(() => {
-  if (gameActive && !gameOver) {
+  if (gameActive && !gameOver && !gamePaused) {
     gold += 1 + Math.floor(wave / 5);
     updateFooter();
   }
 }, goldProductionRate);
 
-// Shop Items (unchanged from previous)
+// Shop Items
 const SHOP_ITEMS = {
   GOLD_PRODUCTION: {
     name: "Gold Production +",
@@ -106,13 +204,21 @@ const SHOP_ITEMS = {
     apply: function() {
       if (diamonds >= this.getPrice()) {
         diamonds -= this.getPrice();
-        localStorage.setItem('warriorDiamonds', diamonds);
+        try {
+          localStorage.setItem('warriorDiamonds', diamonds);
+        } catch (e) {
+          console.error("Failed to save diamonds:", e);
+        }
         goldProductionRate = Math.max(300, 800 - (goldProductionUpgrades * 50));
         goldProductionUpgrades++;
-        localStorage.setItem('warriorGoldProdUpgrades', goldProductionUpgrades);
+        try {
+          localStorage.setItem('warriorGoldProdUpgrades', goldProductionUpgrades);
+        } catch (e) {
+          console.error("Failed to save gold production upgrades:", e);
+        }
         clearInterval(goldInterval);
         goldInterval = setInterval(() => {
-          if (gameActive && !gameOver) {
+          if (gameActive && !gameOver && !gamePaused) {
             gold += 1 + Math.floor(wave / 5);
             updateFooter();
           }
@@ -132,13 +238,47 @@ const SHOP_ITEMS = {
     apply: function() {
       if (diamonds >= this.getPrice()) {
         diamonds -= this.getPrice();
-        localStorage.setItem('warriorDiamonds', diamonds);
+        try {
+          localStorage.setItem('warriorDiamonds', diamonds);
+        } catch (e) {
+          console.error("Failed to save diamonds:", e);
+        }
         baseHealth += 25;
         baseHealthUpgrades++;
-        localStorage.setItem('warriorBaseHealthUpgrades', baseHealthUpgrades);
+        try {
+          localStorage.setItem('warriorBaseHealthUpgrades', baseHealthUpgrades);
+        } catch (e) {
+          console.error("Failed to save base health upgrades:", e);
+        }
         updateFooter();
         updateShop();
         showFeedback("Base health increased!");
+      } else {
+        showFeedback("Not enough diamonds!");
+      }
+    }
+  },
+  BASE_DEFENSE: {
+    name: "Base Defense +",
+    description: "Reduce base damage taken by 10%",
+    getPrice: () => 12 + (baseDefenseUpgrades * 15),
+    apply: function() {
+      if (diamonds >= this.getPrice()) {
+        diamonds -= this.getPrice();
+        try {
+          localStorage.setItem('warriorDiamonds', diamonds);
+        } catch (e) {
+          console.error("Failed to save diamonds:", e);
+        }
+        baseDefenseUpgrades++;
+        try {
+          localStorage.setItem('warriorBaseDefenseUpgrades', baseDefenseUpgrades);
+        } catch (e) {
+          console.error("Failed to save base defense upgrades:", e);
+        }
+        updateFooter();
+        updateShop();
+        showFeedback("Base defense upgraded!");
       } else {
         showFeedback("Not enough diamonds!");
       }
@@ -151,9 +291,17 @@ const SHOP_ITEMS = {
     apply: function() {
       if (diamonds >= this.getPrice()) {
         diamonds -= this.getPrice();
-        localStorage.setItem('warriorDiamonds', diamonds);
+        try {
+          localStorage.setItem('warriorDiamonds', diamonds);
+        } catch (e) {
+          console.error("Failed to save diamonds:", e);
+        }
         unitHealthUpgrades++;
-        localStorage.setItem('warriorUnitHealthUpgrades', unitHealthUpgrades);
+        try {
+          localStorage.setItem('warriorUnitHealthUpgrades', unitHealthUpgrades);
+        } catch (e) {
+          console.error("Failed to save unit health upgrades:", e);
+        }
         updateFooter();
         updateShop();
         showFeedback("Unit health increased!");
@@ -169,19 +317,27 @@ const SHOP_ITEMS = {
     apply: function() {
       if (diamonds >= this.getPrice()) {
         diamonds -= this.getPrice();
-        localStorage.setItem('warriorDiamonds', diamonds);
+        try {
+          localStorage.setItem('warriorDiamonds', diamonds);
+        } catch (e) {
+          console.error("Failed to save diamonds:", e);
+        }
         UNIT_TYPES.BARBARIAN.damage += 2;
         UNIT_TYPES.ARCHER.damage += 2;
         UNIT_TYPES.HORSE.damage += 2;
         UNIT_TYPES.KNIGHT.damage += 2;
         unitDamageUpgrades++;
-        localStorage.setItem('warriorUnitDamage', JSON.stringify({
-          barb: UNIT_TYPES.BARBARIAN.damage,
-          arch: UNIT_TYPES.ARCHER.damage,
-          horse: UNIT_TYPES.HORSE.damage,
-          knight: UNIT_TYPES.KNIGHT.damage
-        }));
-        localStorage.setItem('warriorUnitDamageUpgrades', unitDamageUpgrades);
+        try {
+          localStorage.setItem('warriorUnitDamage', JSON.stringify({
+            barb: UNIT_TYPES.BARBARIAN.damage,
+            arch: UNIT_TYPES.ARCHER.damage,
+            horse: UNIT_TYPES.HORSE.damage,
+            knight: UNIT_TYPES.KNIGHT.damage
+          }));
+          localStorage.setItem('warriorUnitDamageUpgrades', unitDamageUpgrades);
+        } catch (e) {
+          console.error("Failed to save unit damage upgrades:", e);
+        }
         updateFooter();
         updateShop();
         showFeedback("Unit damage increased!");
@@ -193,13 +349,21 @@ const SHOP_ITEMS = {
   NEW_UNIT: {
     name: "Unlock Knight",
     description: "Unlock the powerful Knight unit",
-    getPrice: () => 50,
+    getPrice: () => 25,
     apply: function() {
       if (diamonds >= this.getPrice() && !UNIT_TYPES.KNIGHT.unlocked) {
         diamonds -= this.getPrice();
-        localStorage.setItem('warriorDiamonds', diamonds);
+        try {
+          localStorage.setItem('warriorDiamonds', diamonds);
+        } catch (e) {
+          console.error("Failed to save diamonds:", e);
+        }
         UNIT_TYPES.KNIGHT.unlocked = true;
-        localStorage.setItem('warriorKnightUnlocked', 'true');
+        try {
+          localStorage.setItem('warriorKnightUnlocked', 'true');
+        } catch (e) {
+          console.error("Failed to save knight unlock status:", e);
+        }
         addKnightButton();
         updateShop();
         updateFooter();
@@ -217,25 +381,36 @@ function initGame() {
   baseHealth = 150 + (baseHealthUpgrades * 25);
   enemyBaseHealth = 150;
   gameOver = false;
+  gamePaused = false;
   units = [];
   enemyUnits = [];
   gold = 0;
+  diamonds = 100; // Added for testing
+  try {
+    localStorage.setItem('warriorDiamonds', diamonds);
+  } catch (e) {
+    console.error("Failed to save diamonds:", e);
+  }
   waveCooldown = false;
   waveStarted = false;
   waveCooldownTimer = 0;
-
+  if (waveCooldownInterval) {
+    clearInterval(waveCooldownInterval);
+    waveCooldownInterval = null;
+    hideWaveCooldown();
+  }
   goldProductionRate = Math.max(300, 800 - (goldProductionUpgrades * 50));
   clearInterval(goldInterval);
   goldInterval = setInterval(() => {
-    if (gameActive && !gameOver) {
+    if (gameActive && !gameOver && !gamePaused) {
       gold += 1 + Math.floor(wave / 5);
       updateFooter();
     }
   }, goldProductionRate);
-
   updateShop();
   updateFooter();
   updateUnitSelectionUI();
+  updateButtonStates();
 }
 
 // Game Functions
@@ -252,10 +427,7 @@ function getScaledEnemyStats(type, currentWave) {
 
 function spawnWave(waveNum) {
   if (waveNum > maxWaves) {
-    drawGameOver("Victory!");
-    gameOver = true;
-    if (soundEnabled) winSound.play().catch(e => console.error("Win sound error:", e));
-    restartButton.disabled = false;
+    showGameOverModal("Victory!");
     return;
   }
 
@@ -267,7 +439,7 @@ function spawnWave(waveNum) {
   for (let i = 0; i < barbarianCount; i++) {
     const stats = getScaledEnemyStats("BARBARIAN", waveNum);
     enemyUnits.push({
-      x: canvas.width * 0.9375, // Scales to 750/800
+      x: canvas.width * 0.9375,
       y: canvas.height * 0.333 + (i % 3) * (canvas.height * 0.166),
       type: { ...UNIT_TYPES.BARBARIAN, ...stats },
       hp: stats.health,
@@ -341,10 +513,12 @@ function drawBase(x, color, health) {
   ctx.fillStyle = "#fff";
   ctx.font = `${14 * (canvas.width / 800)}px Roboto`;
   ctx.fillText(`HP: ${Math.max(0, health)}`, scaledX - baseWidth / 2, canvas.height * 0.183);
+  if (x === 20) { // Player base
+    ctx.fillText(`DEF: ${baseDefenseUpgrades * 10}%`, scaledX - baseWidth / 2, canvas.height * 0.167);
+  }
 }
 
 function drawUnit(unit) {
-  console.log("Drawing unit:", unit.type.name, "at", unit.x, unit.y);
   const size = 15 * (canvas.width / 800);
   ctx.fillStyle = "rgba(0,0,0,0.4)";
   ctx.beginPath();
@@ -374,18 +548,6 @@ function drawUnit(unit) {
   ctx.textAlign = "left";
 }
 
-function drawGameOver(message) {
-  ctx.fillStyle = "rgba(0, 0, 0, 0.9)";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = "#ffd700";
-  ctx.font = `${36 * (canvas.width / 800)}px Roboto`;
-  ctx.textAlign = "center";
-  ctx.fillText(message, canvas.width / 2, canvas.height / 2);
-  ctx.font = `${20 * (canvas.width / 800)}px Roboto`;
-  ctx.fillText(`Reached Wave: ${wave}`, canvas.width / 2, canvas.height / 2 + 40 * (canvas.height / 300));
-  ctx.textAlign = "left";
-}
-
 function drawWaveCooldown(seconds) {
   const cooldownElement = document.getElementById("waveCooldown");
   cooldownElement.textContent = `Next Wave in ${seconds}s`;
@@ -411,6 +573,7 @@ function drawWaveProgress() {
 
 // Shop Functions
 function updateShop() {
+  console.log("Updating shop, diamonds:", diamonds);
   const shop = document.getElementById("shop");
   shop.innerHTML = "<h3>Upgrades</h3>";
   for (let key in SHOP_ITEMS) {
@@ -418,62 +581,77 @@ function updateShop() {
     const item = SHOP_ITEMS[key];
     const container = document.createElement("div");
     container.className = "shop-item";
+    const isAffordable = diamonds >= item.getPrice();
     container.innerHTML = `
-      <button>${item.name} - ${item.getPrice()} Diamonds</button>
+      <button ${!isAffordable ? 'disabled' : ''}>${item.name} - ${item.getPrice()} Diamonds</button>
       <p>${item.description}</p>
     `;
-    container.querySelector("button").onclick = item.apply.bind(item);
+    const button = container.querySelector("button");
+    button.onclick = () => {
+      console.log(`Clicked ${item.name}`);
+      item.apply();
+    };
     shop.appendChild(container);
   }
 }
 
 // Unit Functions
 function spawnUnit() {
-  console.log("Attempting to spawn unit:", selectedUnitType.name, "Gold:", gold, "Game Active:", gameActive, "Game Over:", gameOver);
-  if (gameActive && !gameOver) {
+  if (gameActive && !gameOver && !gamePaused) {
     if (gold >= selectedUnitType.cost) {
       gold -= selectedUnitType.cost;
+      const lane = units.length % 3;
       const newUnit = {
         x: canvas.width * 0.0625,
-        y: canvas.height * 0.333 + (units.length % 3) * (canvas.height * 0.166),
+        y: canvas.height * 0.333 + lane * (canvas.height * 0.166),
         type: selectedUnitType,
-        hp: selectedUnitType.health + (unitHealthUpgrades * 3),
-        speed: selectedUnitType.speed,
-        damage: selectedUnitType.damage,
-        maxHp: selectedUnitType.health + (unitHealthUpgrades * 3),
-        opacity: 0
+        hp: Number(selectedUnitType.health) + (unitHealthUpgrades * 3),
+        speed: Number(selectedUnitType.speed),
+        damage: Number(selectedUnitType.damage),
+        maxHp: Number(selectedUnitType.health) + (unitHealthUpgrades * 3),
+        opacity: 0,
+        fadeIn: true,
+        fadeTimer: 0,
+        lane: lane,
+        lastAttack: null
       };
+      if (isNaN(newUnit.hp) || isNaN(newUnit.speed) || isNaN(newUnit.damage)) {
+        console.error("Invalid unit stats:", newUnit);
+        showFeedback("Error spawning unit!");
+        return;
+      }
       units.push(newUnit);
-      console.log("Unit spawned:", newUnit);
-      if (soundEnabled) spawnSound.play().catch(e => console.error("Spawn sound error:", e));
-      let opacity = 0;
-      const fadeInterval = setInterval(() => {
-        opacity += 0.1;
-        newUnit.opacity = opacity;
-        if (opacity >= 1) {
-          newUnit.opacity = 1;
-          clearInterval(fadeInterval);
-        }
-      }, 50);
+      if (soundEnabled) {
+        spawnSound.play().catch(e => {
+          console.error("Spawn sound error:", e);
+          showFeedback("Failed to play spawn sound!");
+        });
+      }
       updateFooter();
     } else {
       showFeedback("Not enough gold!");
     }
   } else {
-    showFeedback("Game not active or over!");
+    showFeedback("Game not active or paused!");
   }
 }
 
 function showFeedback(message) {
+  console.log("Feedback:", message);
   feedbackMessage.textContent = message;
   feedbackMessage.classList.add("show");
   setTimeout(() => {
     feedbackMessage.classList.remove("show");
-  }, 2000);
+  }, 3000);
 }
 
 function showDamageNumber(x, y, amount, isEnemy) {
-  if (soundEnabled && !isEnemy) attackSound.play().catch(e => console.error("Attack sound error:", e));
+  if (soundEnabled && !isEnemy) {
+    attackSound.play().catch(e => {
+      console.error("Attack sound error:", e);
+      showFeedback("Failed to play attack sound!");
+    });
+  }
   const damageText = document.createElement("div");
   damageText.textContent = `-${Math.floor(amount)}`;
   damageText.className = "damage-text";
@@ -490,9 +668,51 @@ function showDamageNumber(x, y, amount, isEnemy) {
   }, 1000);
 }
 
+function showGameOverModal(message) {
+  gameOver = true;
+  gamePaused = true;
+  if (waveCooldownInterval) {
+    clearInterval(waveCooldownInterval);
+    waveCooldownInterval = null;
+    hideWaveCooldown();
+  }
+  gameOverMessage.textContent = message;
+  gameOverWave.textContent = `Reached Wave: ${wave}`;
+  gameOverModal.style.display = "flex";
+  updateButtonStates();
+  if (soundEnabled) {
+    if (message === "Victory!") {
+      winSound.play().catch(e => {
+        console.error("Win sound error:", e);
+        showFeedback("Failed to play win sound!");
+      });
+    } else {
+      loseSound.play().catch(e => {
+        console.error("Lose sound error:", e);
+        showFeedback("Failed to play lose sound!");
+      });
+    }
+  }
+}
+
 // Battle System
 function update() {
-  if (!gameActive || gameOver) return;
+  if (!gameActive || gameOver || gamePaused) return;
+
+  // Update spatial grid
+  updateGrid();
+
+  // Update fading units
+  units.forEach(unit => {
+    if (unit.fadeIn) {
+      unit.fadeTimer += 1/60;
+      unit.opacity = Math.min(1, unit.fadeTimer / 0.5);
+      if (unit.opacity >= 1) {
+        unit.fadeIn = false;
+        unit.opacity = 1;
+      }
+    }
+  });
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   drawBase(20, "#3b5998", baseHealth);
@@ -505,13 +725,17 @@ function update() {
     }
 
     let closestEnemy = null;
+    let highestPriority = -Infinity;
     let closestDistance = Infinity;
 
-    enemyUnits.forEach(enemy => {
+    const nearbyEnemies = getNearbyUnits(unit.x, unit.y, true);
+    nearbyEnemies.forEach(({ unit: enemy }) => {
       const dx = enemy.x - unit.x;
       const dy = enemy.y - unit.y;
       const distance = Math.sqrt(dx * dx + dy * dy);
-      if (distance < closestDistance) {
+      const priority = enemy.speed - distance * 0.1;
+      if (priority > highestPriority || (priority === highestPriority && distance < closestDistance)) {
+        highestPriority = priority;
         closestDistance = distance;
         closestEnemy = enemy;
       }
@@ -528,10 +752,15 @@ function update() {
             showDamageNumber(unit.x, unit.y, closestEnemy.damage * 0.7, true);
           }
           if (closestEnemy.hp <= 0) {
-            const enemyIndex = enemyUnits.indexOf(closestEnemy);
-            if (enemyIndex !== -1) {
+            const enemyEntry = nearbyEnemies.find(e => e.unit === closestEnemy);
+            if (enemyEntry) {
+              const enemyIndex = enemyEntry.index;
               diamonds = Math.max(0, diamonds + closestEnemy.type.reward);
-              localStorage.setItem('warriorDiamonds', diamonds);
+              try {
+                localStorage.setItem('warriorDiamonds', diamonds);
+              } catch (e) {
+                console.error("Failed to save diamonds:", e);
+              }
               enemyUnits.splice(enemyIndex, 1);
               updateFooter();
             }
@@ -541,12 +770,19 @@ function update() {
         const dx = closestEnemy.x - unit.x;
         const dy = closestEnemy.y - unit.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
-        unit.x += (dx / distance) * unit.speed * (canvas.width / 800);
-        unit.y += (dy / distance) * unit.speed * (canvas.height / 300);
+        const targetY = canvas.height * 0.333 + unit.lane * (canvas.height * 0.166);
+        const yDiff = targetY - unit.y;
+        if (distance > 0) {
+          unit.x += (dx / distance) * unit.speed * (canvas.width / 800);
+          unit.y += ((dy / distance) * unit.speed * 0.5 + yDiff * 0.1) * (canvas.height / 300);
+        }
       }
     } else {
       if (unit.x < canvas.width * 0.9125) {
+        const targetY = canvas.height * 0.333 + unit.lane * (canvas.height * 0.166);
+        const yDiff = targetY - unit.y;
         unit.x += unit.speed * (canvas.width / 800);
+        unit.y += yDiff * 0.1 * (canvas.height / 300);
       } else {
         enemyBaseHealth = Math.max(0, enemyBaseHealth - unit.damage);
         showDamageNumber(canvas.width * 0.9375, canvas.height * 0.5, unit.damage, false);
@@ -560,20 +796,28 @@ function update() {
   enemyUnits.forEach((unit, index) => {
     if (unit.hp <= 0) {
       diamonds = Math.max(0, diamonds + unit.type.reward);
-      localStorage.setItem('warriorDiamonds', diamonds);
+      try {
+        localStorage.setItem('warriorDiamonds', diamonds);
+      } catch (e) {
+        console.error("Failed to save diamonds:", e);
+      }
       enemyUnits.splice(index, 1);
       updateFooter();
       return;
     }
 
     let closestAlly = null;
+    let highestPriority = -Infinity;
     let closestDistance = Infinity;
 
-    units.forEach(ally => {
+    const nearbyAllies = getNearbyUnits(unit.x, unit.y, false);
+    nearbyAllies.forEach(({ unit: ally }) => {
       const dx = ally.x - unit.x;
       const dy = ally.y - unit.y;
       const distance = Math.sqrt(dx * dx + dy * dy);
-      if (distance < closestDistance) {
+      const priority = ally.speed - distance * 0.1;
+      if (priority > highestPriority || (priority === highestPriority && distance < closestDistance)) {
+        highestPriority = priority;
         closestDistance = distance;
         closestAlly = ally;
       }
@@ -594,15 +838,19 @@ function update() {
         const dx = closestAlly.x - unit.x;
         const dy = closestAlly.y - unit.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
-        unit.x += (dx / distance) * unit.speed * (canvas.width / 800);
-        unit.y += (dy / distance) * unit.speed * (canvas.height / 300);
+        if (distance > 0) {
+          unit.x += (dx / distance) * unit.speed * (canvas.width / 800);
+          unit.y += (dy / distance) * unit.speed * (canvas.height / 300);
+        }
       }
     } else {
       if (unit.x > canvas.width * 0.0625) {
         unit.x -= unit.speed * (canvas.width / 800);
       } else {
-        baseHealth = Math.max(0, baseHealth - unit.damage);
-        showDamageNumber(canvas.width * 0.025, canvas.height * 0.5, unit.damage, true);
+        const damageReduction = 1 - (baseDefenseUpgrades * 0.1);
+        const cappedDamage = Math.min(unit.damage * damageReduction, 10);
+        baseHealth = Math.max(0, baseHealth - cappedDamage);
+        showDamageNumber(canvas.width * 0.025, canvas.height * 0.5, cappedDamage, true);
         enemyUnits.splice(index, 1);
       }
     }
@@ -613,11 +861,12 @@ function update() {
   if (!waveStarted && enemyUnits.length === 0 && !waveCooldown) {
     waveCooldown = true;
     waveCooldownTimer = 3;
-    const interval = setInterval(() => {
+    waveCooldownInterval = setInterval(() => {
       waveCooldownTimer--;
       drawWaveCooldown(waveCooldownTimer);
       if (waveCooldownTimer <= 0) {
-        clearInterval(interval);
+        clearInterval(waveCooldownInterval);
+        waveCooldownInterval = null;
         hideWaveCooldown();
         spawnWave(wave);
         waveCooldown = false;
@@ -633,18 +882,12 @@ function update() {
   }
 
   if (baseHealth <= 0) {
-    drawGameOver("Defeat!");
-    gameOver = true;
-    if (soundEnabled) loseSound.play().catch(e => console.error("Lose sound error:", e));
-    restartButton.disabled = false;
+    showGameOverModal("Defeat!");
     return;
   }
 
   if (wave > maxWaves) {
-    drawGameOver("Victory!");
-    gameOver = true;
-    if (soundEnabled) winSound.play().catch(e => console.error("Win sound error:", e));
-    restartButton.disabled = false;
+    showGameOverModal("Victory!");
     return;
   }
 
@@ -659,6 +902,7 @@ function addKnightButton() {
     knightButton.className = "unit-button";
     knightButton.dataset.unit = "KNIGHT";
     knightButton.textContent = "Knight (4)";
+    knightButton.innerHTML += `<span class="tooltip">Knight: High health (${UNIT_TYPES.KNIGHT.health}), high damage (${UNIT_TYPES.KNIGHT.damage}). Cost: ${UNIT_TYPES.KNIGHT.cost} gold.</span>`;
     document.querySelector(".unit-controls").appendChild(knightButton);
     knightButton.addEventListener("click", () => {
       selectedUnitType = UNIT_TYPES.KNIGHT;
@@ -673,37 +917,158 @@ function updateUnitSelectionUI() {
   if (activeButton) activeButton.classList.add("active");
 }
 
+function addTooltips() {
+  const tooltips = {
+    BARBARIAN: `Barbarian: Balanced unit. Health: ${UNIT_TYPES.BARBARIAN.health}, Damage: ${UNIT_TYPES.BARBARIAN.damage}. Cost: ${UNIT_TYPES.BARBARIAN.cost} gold.`,
+    ARCHER: `Archer: High damage, low health. Health: ${UNIT_TYPES.ARCHER.health}, Damage: ${UNIT_TYPES.ARCHER.damage}. Cost: ${UNIT_TYPES.ARCHER.cost} gold.`,
+    HORSE: `Horse: Fast and strong. Health: ${UNIT_TYPES.HORSE.health}, Damage: ${UNIT_TYPES.HORSE.damage}. Cost: ${UNIT_TYPES.HORSE.cost} gold.`,
+    KNIGHT: `Knight: Tanky, high damage. Health: ${UNIT_TYPES.KNIGHT.health}, Damage: ${UNIT_TYPES.KNIGHT.damage}. Cost: ${UNIT_TYPES.KNIGHT.cost} gold.`
+  };
+  unitButtons.forEach(button => {
+    const unit = button.dataset.unit;
+    if (unit !== "KNIGHT" || (unit === "KNIGHT" && UNIT_TYPES.KNIGHT.unlocked)) {
+      button.innerHTML += `<span class="tooltip">${tooltips[unit]}</span>`;
+    }
+  });
+}
+
+function updateButtonStates() {
+  fightButton.disabled = gameActive && !gameOver;
+  pauseButton.disabled = !gameActive || gameOver;
+  surrenderButton.disabled = !gameActive || gameOver;
+  restartButton.disabled = gameActive && !gameOver;
+  gameOverRestartButton.disabled = !gameOver;
+  gameOverShopButton.disabled = !gameOver;
+}
+
+// Pause Functions
+function togglePause() {
+  if (gameActive && !gameOver) {
+    gamePaused = !gamePaused;
+    pauseMenu.style.display = gamePaused ? "flex" : "none";
+    pauseButton.textContent = gamePaused ? "Resume" : "Pause";
+    updateButtonStates();
+    if (!gamePaused) {
+      document.getElementById("shop").style.display = "none";
+      requestAnimationFrame(update);
+    }
+  }
+}
+
+// Tutorial Functions
+function showTutorial() {
+  try {
+    if (!localStorage.getItem('warriorTutorialSeen')) {
+      tutorialModal.style.display = "flex";
+      fightButton.disabled = true;
+    }
+  } catch (e) {
+    console.error("Failed to check tutorial status:", e);
+  }
+}
+
+// Unlock audio on first interaction
+function unlockAudio() {
+  [spawnSound, attackSound, winSound, loseSound].forEach(audio => {
+    audio.muted = true;
+    audio.play().then(() => {
+      audio.pause();
+      audio.currentTime = 0;
+      audio.muted = false;
+    }).catch(e => console.warn("Audio unlock failed:", e));
+  });
+}
+
+// Audio Check
+function checkAudioFiles() {
+  [spawnSound, attackSound, winSound, loseSound].forEach(audio => {
+    audio.addEventListener("canplaythrough", () => {
+      console.log(`Audio loaded successfully: ${audio.src}`);
+    }, { once: true });
+
+    audio.addEventListener("error", () => {
+      console.error(`Failed to load audio: ${audio.src}`);
+      showFeedback(`Cannot load ${audio.id}. Check file path.`);
+    }, { once: true });
+
+    audio.load();
+  });
+}
+
 // Event Listeners
 fightButton.addEventListener("click", () => {
-  console.log("Fight button clicked");
+  unlockAudio();
   gameActive = true;
-  fightButton.disabled = true;
-  surrenderButton.disabled = false;
-  restartButton.disabled = true;
   document.getElementById("shop").style.display = "none";
   initGame();
-  console.log("Starting update loop");
   requestAnimationFrame(update);
+});
+
+pauseButton.addEventListener("click", togglePause);
+
+resumeButton.addEventListener("click", togglePause);
+
+toggleShopButton.addEventListener("click", () => {
+  const shop = document.getElementById("shop");
+  shop.style.display = shop.style.display === "block" ? "none" : "block";
+  toggleShopButton.textContent = shop.style.display === "block" ? "Hide Shop" : "Show Shop";
+});
+
+surrenderPauseButton.addEventListener("click", () => {
+  gameActive = false;
+  gameOver = true;
+  gamePaused = false;
+  clearInterval(goldInterval);
+  pauseMenu.style.display = "none";
+  document.getElementById("shop").style.display = "block";
+  updateButtonStates();
 });
 
 surrenderButton.addEventListener("click", () => {
   gameActive = false;
   gameOver = true;
-  fightButton.disabled = false;
-  surrenderButton.disabled = true;
-  restartButton.disabled = true;
+  clearInterval(goldInterval);
   document.getElementById("shop").style.display = "block";
+  updateButtonStates();
 });
 
 restartButton.addEventListener("click", () => {
   gameActive = true;
   gameOver = false;
-  fightButton.disabled = true;
-  surrenderButton.disabled = false;
-  restartButton.disabled = true;
+  gamePaused = false;
   document.getElementById("shop").style.display = "none";
   initGame();
   requestAnimationFrame(update);
+});
+
+gameOverRestartButton.addEventListener("click", () => {
+  gameOverModal.style.display = "none";
+  gameActive = true;
+  gameOver = false;
+  gamePaused = false;
+  document.getElementById("shop").style.display = "none";
+  initGame();
+  requestAnimationFrame(update);
+});
+
+gameOverShopButton.addEventListener("click", () => {
+  gameOverModal.style.display = "none";
+  gameActive = false;
+  gameOver = true;
+  gamePaused = false;
+  clearInterval(goldInterval);
+  document.getElementById("shop").style.display = "block";
+  updateButtonStates();
+});
+
+startTutorialButton.addEventListener("click", () => {
+  tutorialModal.style.display = "none";
+  try {
+    localStorage.setItem('warriorTutorialSeen', 'true');
+  } catch (e) {
+    console.error("Failed to save tutorial status:", e);
+  }
+  updateButtonStates();
 });
 
 soundToggleButton.addEventListener("click", () => {
@@ -712,12 +1077,9 @@ soundToggleButton.addEventListener("click", () => {
 });
 
 if (!spawnButton) {
-  console.error("Spawn button not found!");
+  console.error("Spawn button not found! Please check the HTML for the spawnButton element.");
 } else {
-  spawnButton.addEventListener("click", () => {
-    console.log("Spawn button clicked");
-    spawnUnit();
-  });
+  spawnButton.addEventListener("click", spawnUnit);
 }
 
 unitButtons.forEach(button => {
@@ -728,6 +1090,10 @@ unitButtons.forEach(button => {
 });
 
 document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && gameActive && !gameOver) {
+    togglePause();
+  }
+  if (gamePaused) return;
   if (e.key >= "1" && e.key <= "4") {
     const units = ["BARBARIAN", "ARCHER", "HORSE", "KNIGHT"];
     const index = parseInt(e.key) - 1;
@@ -736,25 +1102,15 @@ document.addEventListener("keydown", (e) => {
     updateUnitSelectionUI();
   }
   if (e.key === " ") {
-    console.log("Spacebar pressed");
     spawnUnit();
   }
 });
 
 // Initialize
 if (UNIT_TYPES.KNIGHT.unlocked) addKnightButton();
+addTooltips();
 updateShop();
 updateUnitSelectionUI();
 updateFooter();
-
-// Audio Check
-function checkAudioFiles() {
-  [spawnSound, attackSound, winSound, loseSound].forEach(audio => {
-    audio.addEventListener("error", () => {
-      console.error(`Failed to load audio: ${audio.src}`);
-      showFeedback(`Audio error: ${audio.id}`);
-    });
-    audio.load();
-  });
-}
+showTutorial();
 checkAudioFiles();
