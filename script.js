@@ -226,6 +226,7 @@ const SHOP_ITEMS = {
         updateShop();
         updateFooter();
         showFeedback("Gold production upgraded!");
+        updateUpgradesDisplay();
       } else {
         showFeedback("Not enough diamonds!");
       }
@@ -253,6 +254,7 @@ const SHOP_ITEMS = {
         updateFooter();
         updateShop();
         showFeedback("Base health increased!");
+        updateUpgradesDisplay();
       } else {
         showFeedback("Not enough diamonds!");
       }
@@ -279,6 +281,7 @@ const SHOP_ITEMS = {
         updateFooter();
         updateShop();
         showFeedback("Base defense upgraded!");
+        updateUpgradesDisplay();
       } else {
         showFeedback("Not enough diamonds!");
       }
@@ -304,7 +307,10 @@ const SHOP_ITEMS = {
         }
         updateFooter();
         updateShop();
+        addTooltips();
+        updateUnitInfoPanel();
         showFeedback("Unit health increased!");
+        updateUpgradesDisplay();
       } else {
         showFeedback("Not enough diamonds!");
       }
@@ -340,7 +346,10 @@ const SHOP_ITEMS = {
         }
         updateFooter();
         updateShop();
+        addTooltips();
+        updateUnitInfoPanel();
         showFeedback("Unit damage increased!");
+        updateUpgradesDisplay();
       } else {
         showFeedback("Not enough diamonds!");
       }
@@ -368,6 +377,7 @@ const SHOP_ITEMS = {
         updateShop();
         updateFooter();
         showFeedback("Knight unlocked!");
+        updateUpgradesDisplay();
       } else {
         showFeedback("Not enough diamonds!");
       }
@@ -385,7 +395,7 @@ function initGame() {
   units = [];
   enemyUnits = [];
   gold = 0;
-  diamonds = 100; // Added for testing
+  diamonds = localStorage.getItem('warriorDiamonds') ? parseInt(localStorage.getItem('warriorDiamonds')) : 100; // Ensure diamonds persist
   try {
     localStorage.setItem('warriorDiamonds', diamonds);
   } catch (e) {
@@ -410,6 +420,8 @@ function initGame() {
   updateShop();
   updateFooter();
   updateUnitSelectionUI();
+  updateUnitInfoPanel();
+  updateUpgradesDisplay();
   updateButtonStates();
 }
 
@@ -573,7 +585,6 @@ function drawWaveProgress() {
 
 // Shop Functions
 function updateShop() {
-  console.log("Updating shop, diamonds:", diamonds);
   const shop = document.getElementById("shop");
   shop.innerHTML = "<h3>Upgrades</h3>";
   for (let key in SHOP_ITEMS) {
@@ -588,11 +599,24 @@ function updateShop() {
     `;
     const button = container.querySelector("button");
     button.onclick = () => {
-      console.log(`Clicked ${item.name}`);
       item.apply();
     };
     shop.appendChild(container);
   }
+}
+
+// New Function to Update Upgrades Display
+function updateUpgradesDisplay() {
+  const upgradesList = document.getElementById("upgradesList");
+  if (!upgradesList) return;
+  let upgradesText = "";
+  if (baseHealthUpgrades > 0) upgradesText += `Base Health: +${baseHealthUpgrades * 25} HP (${baseHealthUpgrades} upgrades)<br>`;
+  if (unitHealthUpgrades > 0) upgradesText += `Unit Health: +${unitHealthUpgrades * 3} HP (${unitHealthUpgrades} upgrades)<br>`;
+  if (unitDamageUpgrades > 0) upgradesText += `Unit Damage: +${unitDamageUpgrades * 2} DMG (${unitDamageUpgrades} upgrades)<br>`;
+  if (goldProductionUpgrades > 0) upgradesText += `Gold Production: ${(800 - Math.max(300, 800 - (goldProductionUpgrades * 50))) / 4000}s faster (${goldProductionUpgrades} upgrades)<br>`;
+  if (baseDefenseUpgrades > 0) upgradesText += `Base Defense: ${baseDefenseUpgrades * 10}% reduction (${baseDefenseUpgrades} upgrades)<br>`;
+  if (UNIT_TYPES.KNIGHT.unlocked) upgradesText += `Knight: Unlocked<br>`;
+  upgradesList.innerHTML = upgradesText || "No upgrades purchased yet.";
 }
 
 // Unit Functions
@@ -637,7 +661,6 @@ function spawnUnit() {
 }
 
 function showFeedback(message) {
-  console.log("Feedback:", message);
   feedbackMessage.textContent = message;
   feedbackMessage.classList.add("show");
   setTimeout(() => {
@@ -749,7 +772,7 @@ function update() {
           showDamageNumber(closestEnemy.x, closestEnemy.y, unit.damage, false);
           if (closestEnemy.hp > 0) {
             unit.hp = Math.max(0, unit.hp - closestEnemy.damage * 0.7);
-            showDamageNumber(unit.x, unit.y, closestEnemy.damage * 0.7, true);
+            showDamageNumber(unit.x, unit.y, cresceEnemy.damage * 0.7, true);
           }
           if (closestEnemy.hp <= 0) {
             const enemyEntry = nearbyEnemies.find(e => e.unit === closestEnemy);
@@ -902,7 +925,7 @@ function addKnightButton() {
     knightButton.className = "unit-button";
     knightButton.dataset.unit = "KNIGHT";
     knightButton.textContent = "Knight (4)";
-    knightButton.innerHTML += `<span class="tooltip">Knight: High health (${UNIT_TYPES.KNIGHT.health}), high damage (${UNIT_TYPES.KNIGHT.damage}). Cost: ${UNIT_TYPES.KNIGHT.cost} gold.</span>`;
+    knightButton.innerHTML += `<span class="tooltip">${generateTooltip("Knight")}</span>`;
     document.querySelector(".unit-controls").appendChild(knightButton);
     knightButton.addEventListener("click", () => {
       selectedUnitType = UNIT_TYPES.KNIGHT;
@@ -915,30 +938,104 @@ function updateUnitSelectionUI() {
   unitButtons.forEach(btn => btn.classList.remove("active"));
   const activeButton = Array.from(unitButtons).find(btn => btn.dataset.unit === selectedUnitType.name.toUpperCase());
   if (activeButton) activeButton.classList.add("active");
+  updateUnitInfoPanel();
 }
 
 function addTooltips() {
   const tooltips = {
-    BARBARIAN: `Barbarian: Balanced unit. Health: ${UNIT_TYPES.BARBARIAN.health}, Damage: ${UNIT_TYPES.BARBARIAN.damage}. Cost: ${UNIT_TYPES.BARBARIAN.cost} gold.`,
-    ARCHER: `Archer: High damage, low health. Health: ${UNIT_TYPES.ARCHER.health}, Damage: ${UNIT_TYPES.ARCHER.damage}. Cost: ${UNIT_TYPES.ARCHER.cost} gold.`,
-    HORSE: `Horse: Fast and strong. Health: ${UNIT_TYPES.HORSE.health}, Damage: ${UNIT_TYPES.HORSE.damage}. Cost: ${UNIT_TYPES.HORSE.cost} gold.`,
-    KNIGHT: `Knight: Tanky, high damage. Health: ${UNIT_TYPES.KNIGHT.health}, Damage: ${UNIT_TYPES.KNIGHT.damage}. Cost: ${UNIT_TYPES.KNIGHT.cost} gold.`
+    BARBARIAN: generateTooltip("Barbarian"),
+    ARCHER: generateTooltip("Archer"),
+    HORSE: generateTooltip("Horse"),
+    KNIGHT: generateTooltip("Knight")
   };
+
   unitButtons.forEach(button => {
     const unit = button.dataset.unit;
     if (unit !== "KNIGHT" || (unit === "KNIGHT" && UNIT_TYPES.KNIGHT.unlocked)) {
-      button.innerHTML += `<span class="tooltip">${tooltips[unit]}</span>`;
+      button.innerHTML = button.textContent + `<span class="tooltip">${tooltips[unit]}</span>`;
     }
   });
+}
+
+function generateTooltip(unitName) {
+  const unit = UNIT_TYPES[unitName.toUpperCase()];
+  const health = unit.health + (unitHealthUpgrades * 3);
+  const damage = unit.damage;
+  const speed = unit.speed.toFixed(1);
+  const cost = unit.cost;
+  let description = "";
+  
+  switch (unitName.toUpperCase()) {
+    case "BARBARIAN":
+      description = "Balanced fighter, good for early waves.";
+      break;
+    case "ARCHER":
+      description = "High damage, fragile. Great for ranged support.";
+      break;
+    case "HORSE":
+      description = "Fast and strong, ideal for quick strikes.";
+      break;
+    case "KNIGHT":
+      description = "Tanky with high damage, excels in late waves.";
+      break;
+  }
+
+  return `
+    <strong>${unitName}</strong><br>
+    ${description}<br>
+    <ul style="list-style: none; padding: 0; margin: 5px 0 0;">
+      <li>Health: ${health}</li>
+      <li>Damage: ${damage}</li>
+      <li>Speed: ${speed}</li>
+      <li>Cost: ${cost} gold</li>
+    </ul>
+  `;
+}
+
+function updateUnitInfoPanel() {
+  const panel = document.getElementById("unitInfoPanel");
+  if (!panel) return;
+  if (!selectedUnitType) {
+    panel.innerHTML = "";
+    return;
+  }
+  const health = selectedUnitType.health + (unitHealthUpgrades * 3);
+  const damage = selectedUnitType.damage;
+  const speed = selectedUnitType.speed.toFixed(1);
+  const cost = selectedUnitType.cost;
+  let description = "";
+  switch (selectedUnitType.name.toUpperCase()) {
+    case "BARBARIAN":
+      description = "Balanced fighter, good for early waves.";
+      break;
+    case "ARCHER":
+      description = "High damage, fragile. Great for ranged support.";
+      break;
+    case "HORSE":
+      description = "Fast and strong, ideal for quick strikes.";
+      break;
+    case "KNIGHT":
+      description = "Tanky with high damage, excels in late waves.";
+      break;
+  }
+  panel.innerHTML = `
+    <h4>${selectedUnitType.name}</h4>
+    <p>${description}</p>
+    <p>Health: ${health}</p>
+    <p>Damage: ${damage}</p>
+    <p>Speed: ${speed}</p>
+    <p>Cost: ${cost} gold</p>
+  `;
 }
 
 function updateButtonStates() {
   fightButton.disabled = gameActive && !gameOver;
   pauseButton.disabled = !gameActive || gameOver;
   surrenderButton.disabled = !gameActive || gameOver;
-  restartButton.disabled = gameActive && !gameOver;
+  restartButton.disabled = !gameActive || gameOver;
   gameOverRestartButton.disabled = !gameOver;
   gameOverShopButton.disabled = !gameOver;
+  pauseButton.textContent = gamePaused ? "Resume" : "Pause";
 }
 
 // Pause Functions
@@ -946,10 +1043,11 @@ function togglePause() {
   if (gameActive && !gameOver) {
     gamePaused = !gamePaused;
     pauseMenu.style.display = gamePaused ? "flex" : "none";
-    pauseButton.textContent = gamePaused ? "Resume" : "Pause";
     updateButtonStates();
+    updateUpgradesDisplay();
     if (!gamePaused) {
       document.getElementById("shop").style.display = "none";
+      toggleShopButton.textContent = "Show Shop";
       requestAnimationFrame(update);
     }
   }
@@ -1025,20 +1123,29 @@ surrenderPauseButton.addEventListener("click", () => {
 });
 
 surrenderButton.addEventListener("click", () => {
-  gameActive = false;
-  gameOver = true;
-  clearInterval(goldInterval);
-  document.getElementById("shop").style.display = "block";
-  updateButtonStates();
+  if (gameActive && !gameOver) {
+    gameActive = false;
+    gameOver = true;
+    gamePaused = false;
+    clearInterval(goldInterval);
+    pauseMenu.style.display = "none";
+    document.getElementById("shop").style.display = "block";
+    showFeedback("You surrendered!");
+    updateButtonStates();
+  }
 });
 
 restartButton.addEventListener("click", () => {
-  gameActive = true;
-  gameOver = false;
-  gamePaused = false;
-  document.getElementById("shop").style.display = "none";
-  initGame();
-  requestAnimationFrame(update);
+  if (gameActive && !gameOver) {
+    gameActive = true;
+    gameOver = false;
+    gamePaused = false;
+    pauseMenu.style.display = "none";
+    document.getElementById("shop").style.display = "none";
+    initGame();
+    showFeedback("Game restarted!");
+    requestAnimationFrame(update);
+  }
 });
 
 gameOverRestartButton.addEventListener("click", () => {

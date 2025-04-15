@@ -115,7 +115,7 @@ canvas {
   background: #2c2c2c;
   padding: 20px;
   border-radius: 8px;
-  display: block; /* Changed to block for testing */
+  display: block;
 }
 
 .shop-panel h3 {
@@ -249,23 +249,65 @@ canvas {
   margin: 10px auto;
 }
 
+/* Upgrades Display Styles */
+.upgrades-display {
+  margin-top: 20px;
+  padding: 10px;
+  background: #3b3b3b;
+  border-radius: 6px;
+}
+
+.upgrades-display h3 {
+  color: #ffd700;
+  margin-bottom: 10px;
+}
+
+.upgrades-display p {
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
 /* Tooltip Styles */
 .tooltip {
   position: absolute;
-  background: #333;
+  background: rgba(0, 0, 0, 0.9);
   color: #fff;
-  padding: 5px 10px;
-  border-radius: 4px;
-  font-size: 0.9rem;
-  top: -40px;
+  padding: 10px 15px;
+  border-radius: 6px;
+  font-size: 1rem;
+  line-height: 1.5;
+  top: -100px;
   left: 50%;
   transform: translateX(-50%);
   display: none;
   z-index: 10;
+  min-width: 200px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
 }
 
 .unit-button:hover .tooltip {
   display: block;
+}
+
+/* Unit Info Panel Styles */
+.unit-info-panel {
+  background: #2c2c2c;
+  padding: 10px;
+  border-radius: 8px;
+  margin: 10px auto;
+  max-width: 300px;
+  text-align: center;
+  color: #fff;
+}
+
+.unit-info-panel h4 {
+  color: #ffd700;
+  margin-bottom: 10px;
+}
+
+.unit-info-panel p {
+  margin: 5px 0;
+  font-size: 0.9rem;
 }
 
 /* Responsive Design */
@@ -299,6 +341,22 @@ canvas {
 
   .modal-content {
     width: 95%;
+  }
+
+  .tooltip {
+    font-size: 0.9rem;
+    min-width: 150px;
+    top: -80px;
+    padding: 8px 12px;
+  }
+
+  .unit-info-panel {
+    max-width: 90%;
+    padding: 8px;
+  }
+
+  .unit-info-panel p {
+    font-size: 0.8rem;
   }
 }
 

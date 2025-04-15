@@ -19,6 +19,8 @@
       <button id="spawnButton" class="spawn-button">Spawn (Space)</button>
     </section>
 
+    <div id="unitInfoPanel" class="unit-info-panel"></div>
+
     <section class="game-canvas">
       <canvas id="gameCanvas" width="800" height="300"></canvas>
       <div id="waveProgress" class="wave-progress">
@@ -28,9 +30,9 @@
 
     <section class="game-controls">
       <button id="fightButton" class="control-button">Fight!</button>
-      <button id="pauseButton" class="control-button" disabled>Pause</button>
-      <button id="surrenderButton" class="control-button" disabled>Surrender</button>
-      <button id="restartButton" class="control-button" disabled>Restart</button>
+      <button id="pauseButton" class="control-button">Pause</button>
+      <button id="surrenderButton" class="control-button">Surrender</button>
+      <button id="restartButton" class="control-button">Restart</button>
       <button id="soundToggleButton" class="control-button">Sound: On</button>
     </section>
 
@@ -45,6 +47,10 @@
         <button id="resumeButton" class="control-button">Resume</button>
         <button id="toggleShopButton" class="control-button">Show Shop</button>
         <button id="surrenderPauseButton" class="control-button">Surrender</button>
+        <div id="upgradesDisplay" class="upgrades-display">
+          <h3>Your Upgrades</h3>
+          <p id="upgradesList"></p>
+        </div>
       </div>
     </div>
 
