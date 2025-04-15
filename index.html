@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"> <!-- For mobile responsiveness -->
   <title>We Are Warriors - Simple Clone</title>
   <link rel="stylesheet" href="styles.css">
 </head>
@@ -18,11 +19,21 @@
   <div id="gameControls">
     <button id="fightButton">Fight!</button>
     <button id="surrenderButton" disabled>Surrender</button>
+    <button id="restartButton" disabled>Restart</button>
+    <button id="soundToggleButton">Sound: On</button>
   </div>
 
+  <div id="feedbackMessage" style="display:none; color: #e74c3c; font-size: 16px; margin-top: 10px;"></div>
   <div id="shop" style="display:none;"></div>
   <div id="waveCooldown" style="display:none;"></div>
 
+  <!-- Audio elements -->
+  <audio id="spawnSound" src="/sounds/spawn.mp3"></audio>
+  <audio id="attackSound" src="/sounds/attack.mp3"></audio>
+  <audio id="winSound" src="/sounds/win.mp3"></audio>
+  <audio id="loseSound" src="/sounds/lose.mp3"></audio>
+
   <script src="script.js"></script>
+  <!-- Cloudflare script remains unchanged -->
 </body>
 </html>
