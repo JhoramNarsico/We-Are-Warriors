@@ -1,0 +1,47 @@
+body {
+    font-family: Arial, sans-serif;
+    text-align: center;
+    background-color: #f0f0f0;
+    margin: 0;
+    padding: 20px;
+  }
+  
+  canvas {
+    background-color: #fff;
+    border: 2px solid #000;
+    display: block;
+    margin: 0 auto;
+  }
+  
+  #gameControls {
+    margin-top: 10px;
+  }
+  
+  #shop button {
+    margin: 5px;
+    padding: 8px 15px;
+    font-size: 14px;
+  }
+  
+  #unitControls {
+    margin-bottom: 10px;
+  }
+  
+  #unitControls button {
+    margin: 0 5px;
+    padding: 8px 15px;
+    font-size: 14px;
+  }
+  
+  #waveCooldown {
+    font-family: Arial;
+    font-size: 18px;
+    margin-top: 10px;
+    color: red;
+  }
+  
+  #gameControls button {
+    padding: 8px 20px;
+    font-size: 16px;
+    margin: 0 10px;
+  }
