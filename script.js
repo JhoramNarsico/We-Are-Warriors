@@ -38,6 +38,7 @@ resizeCanvas();
 // Spatial Partitioning Grid
 const GRID_CELL_SIZE = 50;
 const grid = new Map();
+let unitsToUpdate = new Set(); // Track units needing grid updates
 
 function getGridKey(x, y) {
   const gridX = Math.floor(x / GRID_CELL_SIZE);
@@ -427,8 +428,9 @@ function initGame() {
 
 // Game Functions
 function getScaledEnemyStats(type, currentWave) {
-  const healthScale = Math.pow(1.18, currentWave - 1);
-  const damageScale = Math.pow(1.14, currentWave - 1);
+  // Modified: Cap scaling to prevent overwhelming difficulty
+  const healthScale = Math.min(10, Math.pow(1.15, currentWave - 1)); // Reduced from 1.18, capped at 10x
+  const damageScale = Math.min(10, Math.pow(1.12, currentWave - 1)); // Reduced from 1.14, capped at 10x
   return {
     health: Math.floor(BASE_ENEMY_STATS[type].health * healthScale),
     damage: Math.floor(BASE_ENEMY_STATS[type].damage * damageScale),
@@ -443,10 +445,11 @@ function spawnWave(waveNum) {
     return;
   }
 
-  const barbarianCount = 2 + Math.floor(waveNum / 2);
-  const archerCount = Math.max(0, Math.floor((waveNum - 2) / 3));
-  const horseCount = Math.max(0, Math.floor((waveNum - 4) / 5));
-  const knightCount = waveNum >= 10 ? Math.floor(waveNum / 10) : 0;
+  // Modified: Reduced enemy counts for balance
+  const barbarianCount = Math.min(10, 2 + Math.floor(waveNum / 3)); // Reduced scaling
+  const archerCount = Math.min(5, Math.floor((waveNum - 2) / 4)); // Reduced scaling
+  const horseCount = Math.min(3, Math.floor((waveNum - 4) / 6)); // Reduced scaling
+  const knightCount = waveNum >= 10 ? Math.min(2, Math.floor(waveNum / 12)) : 0; // Reduced scaling
 
   for (let i = 0; i < barbarianCount; i++) {
     const stats = getScaledEnemyStats("BARBARIAN", waveNum);
@@ -459,7 +462,9 @@ function spawnWave(waveNum) {
       damage: stats.damage,
       maxHp: stats.health,
       opacity: 1,
-      lane: i % 3
+      lane: i % 3,
+      lastAttack: null,
+      lastGridKey: null // Track grid position
     });
   }
   for (let i = 0; i < archerCount; i++) {
@@ -473,7 +478,9 @@ function spawnWave(waveNum) {
       damage: stats.damage,
       maxHp: stats.health,
       opacity: 1,
-      lane: i % 3
+      lane: i % 3,
+      lastAttack: null,
+      lastGridKey: null
     });
   }
   for (let i = 0; i < horseCount; i++) {
@@ -487,7 +494,9 @@ function spawnWave(waveNum) {
       damage: stats.damage,
       maxHp: stats.health,
       opacity: 1,
-      lane: i % 3
+      lane: i % 3,
+      lastAttack: null,
+      lastGridKey: null
     });
   }
   for (let i = 0; i < knightCount; i++) {
@@ -501,7 +510,9 @@ function spawnWave(waveNum) {
       damage: stats.damage,
       maxHp: stats.health,
       opacity: 1,
-      lane: i % 3
+      lane: i % 3,
+      lastAttack: null,
+      lastGridKey: null
     });
   }
 
@@ -514,17 +525,14 @@ function drawBase(x, color, health) {
   const baseWidth = 70 * (canvas.width / 800);
   const baseHeight = 130 * (canvas.height / 300);
   
-  // Castle-like base design
   ctx.fillStyle = "#555";
   ctx.fillRect(scaledX - baseWidth / 2, canvas.height * 0.233, baseWidth, baseHeight);
   ctx.fillStyle = color;
   ctx.fillRect(scaledX - 30 * (canvas.width / 800), canvas.height * 0.233, 60 * (canvas.width / 800), baseHeight * 0.8);
-  // Add turrets
   ctx.fillStyle = "#333";
   ctx.fillRect(scaledX - baseWidth / 2, canvas.height * 0.2, 15 * (canvas.width / 800), 20 * (canvas.height / 300));
   ctx.fillRect(scaledX + baseWidth / 2 - 15 * (canvas.width / 800), canvas.height * 0.2, 15 * (canvas.width / 800), 20 * (canvas.height / 300));
 
-  // Enhanced health bar
   const maxHealth = 150 + (baseHealthUpgrades * 25);
   const healthPercentage = Math.max(0, health / maxHealth);
   ctx.fillStyle = "rgba(0,0,0,0.7)";
@@ -532,7 +540,6 @@ function drawBase(x, color, health) {
   ctx.fillStyle = healthPercentage > 0.5 ? "#28a745" : healthPercentage > 0.2 ? "#ffd700" : "#dc3545";
   ctx.fillRect(scaledX - baseWidth / 2, canvas.height * 0.18, baseWidth * healthPercentage, 10 * (canvas.height / 300));
 
-  // Health text with percentage
   ctx.fillStyle = "#fff";
   ctx.font = `${14 * (canvas.width / 800)}px Roboto`;
   ctx.fillText(`HP: ${Math.max(0, health)} (${Math.round(healthPercentage * 100)}%)`, scaledX - baseWidth / 2, canvas.height * 0.167);
@@ -545,13 +552,11 @@ function drawUnit(unit) {
   const size = 15 * (canvas.width / 800);
   const shadowSize = size * 1.2;
 
-  // Shadow
   ctx.fillStyle = "rgba(0,0,0,0.4)";
   ctx.beginPath();
   ctx.arc(unit.x + 2 * (canvas.width / 800) + size, unit.y + 2 * (canvas.height / 300) + size, shadowSize, 0, Math.PI * 2);
   ctx.fill();
 
-  // Unit shape based on type
   ctx.fillStyle = unit.type.color;
   ctx.globalAlpha = unit.opacity || 1;
   ctx.shadowColor = unit.type.color;
@@ -562,14 +567,12 @@ function drawUnit(unit) {
       ctx.arc(unit.x + size, unit.y + size, size, 0, Math.PI * 2);
       break;
     case "ARCHER":
-      // Triangle
       ctx.moveTo(unit.x + size, unit.y);
       ctx.lineTo(unit.x + size * 2, unit.y + size * 2);
       ctx.lineTo(unit.x, unit.y + size * 2);
       ctx.closePath();
       break;
     case "HORSE":
-      // Pentagon
       for (let i = 0; i < 5; i++) {
         const angle = (Math.PI * 2 * i) / 5 - Math.PI / 2;
         const px = unit.x + size + Math.cos(angle) * size;
@@ -580,7 +583,6 @@ function drawUnit(unit) {
       ctx.closePath();
       break;
     case "KNIGHT":
-      // Rectangle
       ctx.rect(unit.x, unit.y, size * 2, size * 2);
       break;
   }
@@ -588,7 +590,6 @@ function drawUnit(unit) {
   ctx.shadowBlur = 0;
   ctx.globalAlpha = 1;
 
-  // Health bar
   const maxHealth = unit.maxHp || (unit.type.health + (unitHealthUpgrades * 3));
   const healthPercentage = Math.max(0, unit.hp / maxHealth);
   ctx.fillStyle = "rgba(0,0,0,0.8)";
@@ -596,7 +597,6 @@ function drawUnit(unit) {
   ctx.fillStyle = healthPercentage > 0.6 ? "#28a745" : healthPercentage > 0.3 ? "#ffd700" : "#dc3545";
   ctx.fillRect(unit.x - 5 * (canvas.width / 800), unit.y - 12 * (canvas.height / 300), (size * 2 + 10 * (canvas.width / 800)) * healthPercentage, 6 * (canvas.height / 300));
 
-  // Unit label
   ctx.fillStyle = "#fff";
   ctx.font = `${12 * (canvas.width / 800)}px Roboto`;
   ctx.textAlign = "center";
@@ -680,7 +680,8 @@ function spawnUnit() {
         maxHp: Number(selectedUnitType.health) + (unitHealthUpgrades * 3),
         opacity: 1,
         lane: lane,
-        lastAttack: null
+        lastAttack: null,
+        lastGridKey: null // Track grid position
       };
       if (newUnit.x < 0 || newUnit.x > canvas.width || newUnit.y < 0 || newUnit.y > canvas.height) {
         console.error("Unit spawned outside canvas:", newUnit.x, newUnit.y);
@@ -764,8 +765,25 @@ function showGameOverModal(message) {
 function update() {
   if (!gameActive || gameOver || gamePaused) return;
 
-  // Update spatial grid
-  updateGrid();
+  // Modified: Optimized grid updates
+  units.forEach(unit => {
+    const currentKey = getGridKey(unit.x, unit.y);
+    if (unit.lastGridKey !== currentKey) {
+      unit.lastGridKey = currentKey;
+      unitsToUpdate.add(unit);
+    }
+  });
+  enemyUnits.forEach(unit => {
+    const currentKey = getGridKey(unit.x, unit.y);
+    if (unit.lastGridKey !== currentKey) {
+      unit.lastGridKey = currentKey;
+      unitsToUpdate.add(unit);
+    }
+  });
+  if (unitsToUpdate.size > 0) {
+    updateGrid();
+    unitsToUpdate.clear();
+  }
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   drawBase(20, "#3b5998", baseHealth);
@@ -786,7 +804,8 @@ function update() {
       const dx = enemy.x - unit.x;
       const dy = enemy.y - unit.y;
       const distance = Math.sqrt(dx * dx + dy * dy);
-      const priority = enemy.speed - distance * 0.1;
+      // Modified: Prioritize closer units
+      const priority = 1 / distance + enemy.speed / 10;
       if (priority > highestPriority || (priority === highestPriority && distance < closestDistance)) {
         highestPriority = priority;
         closestDistance = distance;
@@ -796,26 +815,31 @@ function update() {
 
     if (closestEnemy) {
       if (closestDistance <= 30 * (canvas.width / 800)) {
+        // Modified: Shared attack cooldown, prioritize faster unit
         if (!unit.lastAttack || Date.now() - unit.lastAttack > 1000) {
-          unit.lastAttack = Date.now();
-          closestEnemy.hp = Math.max(0, closestEnemy.hp - unit.damage);
-          showDamageNumber(closestEnemy.x, closestEnemy.y, unit.damage, false);
-          if (closestEnemy.hp > 0) {
-            unit.hp = Math.max(0, unit.hp - closestEnemy.damage * 0.7);
-            showDamageNumber(unit.x, unit.y, closestEnemy.damage * 0.7, true);
-          }
-          if (closestEnemy.hp <= 0) {
-            const enemyEntry = nearbyEnemies.find(e => e.unit === closestEnemy);
-            if (enemyEntry) {
-              const enemyIndex = enemyEntry.index;
-              diamonds = Math.max(0, diamonds + closestEnemy.type.reward);
-              try {
-                localStorage.setItem('warriorDiamonds', diamonds);
-              } catch (e) {
-                console.error("Failed to save diamonds:", e);
+          const enemyEntry = nearbyEnemies.find(e => e.unit === closestEnemy);
+          if (enemyEntry) {
+            const enemy = enemyEntry.unit;
+            const attackFirst = unit.speed >= enemy.speed; // Faster unit attacks first
+            if (attackFirst) {
+              unit.lastAttack = Date.now();
+              enemy.hp = Math.max(0, enemy.hp - unit.damage);
+              showDamageNumber(enemy.x, enemy.y, unit.damage, false);
+              if (enemy.hp <= 0) {
+                const enemyIndex = enemyEntry.index;
+                diamonds = Math.max(0, diamonds + enemy.type.reward);
+                try {
+                  localStorage.setItem('warriorDiamonds', diamonds);
+                } catch (e) {
+                  console.error("Failed to save diamonds:", e);
+                }
+                enemyUnits.splice(enemyIndex, 1);
+                updateFooter();
+              } else if (!enemy.lastAttack || Date.now() - enemy.lastAttack > 1000) {
+                enemy.lastAttack = Date.now();
+                unit.hp = Math.max(0, unit.hp - enemy.damage * 0.7);
+                showDamageNumber(unit.x, unit.y, enemy.damage * 0.7, true);
               }
-              enemyUnits.splice(enemyIndex, 1);
-              updateFooter();
             }
           }
         }
@@ -824,10 +848,15 @@ function update() {
         const dy = closestEnemy.y - unit.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
         const targetY = canvas.height * 0.333 + unit.lane * (canvas.height * 0.166);
+        // Modified: Smoother lane alignment with lerp
         const yDiff = targetY - unit.y;
         if (distance > 0) {
           unit.x += (dx / distance) * unit.speed * (canvas.width / 800);
-          unit.y += ((dy / distance) * unit.speed * 0.5 + yDiff * 0.1) * (canvas.height / 300);
+          unit.y += (dy / distance) * unit.speed * 0.5 * (canvas.height / 300);
+          unit.y = unit.y + (yDiff * 0.2); // Stronger lerp to lane
+          // Clamp y to lane boundaries
+          const laneY = canvas.height * 0.333 + unit.lane * (canvas.height * 0.166);
+          unit.y = Math.max(laneY - 10, Math.min(laneY + 10, unit.y));
         }
       }
     } else {
@@ -835,11 +864,20 @@ function update() {
         const targetY = canvas.height * 0.333 + unit.lane * (canvas.height * 0.166);
         const yDiff = targetY - unit.y;
         unit.x += unit.speed * (canvas.width / 800);
-        unit.y += yDiff * 0.1 * (canvas.height / 300);
+        unit.y += yDiff * 0.2 * (canvas.height / 300);
+        // Clamp y to lane boundaries
+        const laneY = canvas.height * 0.333 + unit.lane * (canvas.height * 0.166);
+        unit.y = Math.max(laneY - 10, Math.min(laneY + 10, unit.y));
       } else {
-        enemyBaseHealth = Math.max(0, enemyBaseHealth - unit.damage);
-        showDamageNumber(canvas.width * 0.9375, canvas.height * 0.5, unit.damage, false);
-        units.splice(index, 1);
+        // Modified: Attack enemy base over time
+        if (!unit.lastAttack || Date.now() - unit.lastAttack > 1000) {
+          unit.lastAttack = Date.now();
+          enemyBaseHealth = Math.max(0, enemyBaseHealth - unit.damage);
+          showDamageNumber(canvas.width * 0.9375, canvas.height * 0.5, unit.damage, false);
+          if (enemyBaseHealth <= 0) {
+            units.splice(index, 1);
+          }
+        }
       }
     }
 
@@ -868,7 +906,8 @@ function update() {
       const dx = ally.x - unit.x;
       const dy = ally.y - unit.y;
       const distance = Math.sqrt(dx * dx + dy * dy);
-      const priority = ally.speed - distance * 0.1;
+      // Modified: Prioritize closer units
+      const priority = 1 / distance + ally.speed / 10;
       if (priority > highestPriority || (priority === highestPriority && distance < closestDistance)) {
         highestPriority = priority;
         closestDistance = distance;
@@ -878,13 +917,24 @@ function update() {
 
     if (closestAlly) {
       if (closestDistance <= 30 * (canvas.width / 800)) {
+        // Modified: Shared attack cooldown, prioritize faster unit
         if (!unit.lastAttack || Date.now() - unit.lastAttack > 1000) {
-          unit.lastAttack = Date.now();
-          closestAlly.hp = Math.max(0, closestAlly.hp - unit.damage);
-          showDamageNumber(closestAlly.x, closestAlly.y, unit.damage, true);
-          if (closestAlly.hp > 0) {
-            unit.hp = Math.max(0, unit.hp - closestAlly.damage * 0.7);
-            showDamageNumber(unit.x, unit.y, closestAlly.damage * 0.7, false);
+          const allyEntry = nearbyAllies.find(e => e.unit === closestAlly);
+          if (allyEntry) {
+            const ally = allyEntry.unit;
+            const attackFirst = unit.speed >= ally.speed;
+            if (attackFirst) {
+              unit.lastAttack = Date.now();
+              ally.hp = Math.max(0, ally.hp - unit.damage);
+              showDamageNumber(ally.x, ally.y, unit.damage, true);
+              if (ally.hp <= 0) {
+                units.splice(allyEntry.index, 1);
+              } else if (!ally.lastAttack || Date.now() - ally.lastAttack > 1000) {
+                ally.lastAttack = Date.now();
+                unit.hp = Math.max(0, unit.hp - ally.damage * 0.7);
+                showDamageNumber(unit.x, unit.y, ally.damage * 0.7, false);
+              }
+            }
           }
         }
       } else {
@@ -892,21 +942,38 @@ function update() {
         const dy = closestAlly.y - unit.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
         const targetY = canvas.height * 0.333 + unit.lane * (canvas.height * 0.166);
+        // Modified: Smoother lane alignment with lerp
         const yDiff = targetY - unit.y;
         if (distance > 0) {
           unit.x += (dx / distance) * unit.speed * (canvas.width / 800);
-          unit.y += ((dy / distance) * unit.speed * 0.5 + yDiff * 0.1) * (canvas.height / 300);
+          unit.y += (dy / distance) * unit.speed * 0.5 * (canvas.height / 300);
+          unit.y = unit.y + (yDiff * 0.2);
+          // Clamp y to lane boundaries
+          const laneY = canvas.height * 0.333 + unit.lane * (canvas.height * 0.166);
+          unit.y = Math.max(laneY - 10, Math.min(laneY + 10, unit.y));
         }
       }
     } else {
       if (unit.x > canvas.width * 0.0625) {
+        const targetY = canvas.height * 0.333 + unit.lane * (canvas.height * 0.166);
+        const yDiff = targetY - unit.y;
         unit.x -= unit.speed * (canvas.width / 800);
+        unit.y += yDiff * 0.2 * (canvas.height / 300);
+        // Clamp y to lane boundaries
+        const laneY = canvas.height * 0.333 + unit.lane * (canvas.height * 0.166);
+        unit.y = Math.max(laneY - 10, Math.min(laneY + 10, unit.y));
       } else {
-        const damageReduction = 1 - (baseDefenseUpgrades * 0.1);
-        const cappedDamage = Math.min(unit.damage * damageReduction, 10);
-        baseHealth = Math.max(0, baseHealth - cappedDamage);
-        showDamageNumber(canvas.width * 0.025, canvas.height * 0.5, cappedDamage, true);
-        enemyUnits.splice(index, 1);
+        // Modified: Attack player base over time
+        if (!unit.lastAttack || Date.now() - unit.lastAttack > 1000) {
+          unit.lastAttack = Date.now();
+          const damageReduction = 1 - (baseDefenseUpgrades * 0.1);
+          const cappedDamage = Math.min(unit.damage * damageReduction, 10);
+          baseHealth = Math.max(0, baseHealth - cappedDamage);
+          showDamageNumber(canvas.width * 0.025, canvas.height * 0.5, cappedDamage, true);
+          if (baseHealth <= 0) {
+            enemyUnits.splice(index, 1);
+          }
+        }
       }
     }
 
