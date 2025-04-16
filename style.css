@@ -42,33 +42,54 @@ body {
 }
 
 .unit-button, .spawn-button, .control-button {
-  padding: 12px 24px;
+  padding: 8px; /* Adjusted for icon buttons */
+  width: 50px; /* Fixed width for icon buttons */
+  height: 50px; /* Fixed height for icon buttons */
   font-size: 1rem;
   border: none;
   border-radius: 8px;
   cursor: pointer;
   transition: transform 0.2s, background-color 0.2s;
   color: #fff;
+  background: linear-gradient(45deg, #3b5998, #4a90e2);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  display: flex; /* Added for centering icons */
+  justify-content: center; /* Center icons horizontally */
+  align-items: center; /* Center icons vertically */
 }
 
-.unit-button {
-  background-color: #3b5998;
-  position: relative;
+.unit-button svg {
+  width: 24px; /* Size of SVG icons */
+  height: 24px;
+  fill: #ffffff; /* White fill for icons */
+  transition: transform 0.2s; /* Smooth scaling on hover */
+}
+
+.unit-button:hover svg {
+  transform: scale(1.2); /* Slight scale on hover */
 }
 
 .unit-button.active {
-  background-color: #ffd700;
+  background: linear-gradient(45deg, #ffd700, #ffec80);
   color: #1a1a1a;
   transform: scale(1.05);
 }
 
+.unit-button.active svg {
+  fill: #1a1a1a; /* Dark fill for active state */
+}
+
 .spawn-button {
-  background-color: #28a745;
+  background: linear-gradient(45deg, #28a745, #34c759);
   font-weight: bold;
+  padding: 12px 24px; /* Restore original padding for spawn button */
+  width: auto; /* Allow text-based button to size naturally */
 }
 
 .control-button {
-  background-color: #dc3545;
+  background: linear-gradient(45deg, #dc3545, #ff4d4f);
+  padding: 12px 24px; /* Restore original padding */
+  width: auto; /* Allow text-based button to size naturally */
 }
 
 .unit-button:hover, .spawn-button:hover, .control-button:hover {
@@ -76,9 +97,10 @@ body {
 }
 
 .unit-button:disabled, .spawn-button:disabled, .control-button:disabled {
-  background-color: #555;
+  background: #555;
   cursor: not-allowed;
   transform: none;
+  box-shadow: none;
 }
 
 .game-canvas {
@@ -89,7 +111,9 @@ body {
 }
 
 canvas {
-  background: linear-gradient(to bottom, #4a90e2, #2ecc71);
+  background: linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.2)), url('battlefield.png'), linear-gradient(to bottom, #4a90e2, #2ecc71);
+  background-size: cover, cover, auto;
+  background-position: center, center, center;
   border: 3px solid #333;
   border-radius: 8px;
   max-width: 100%;
@@ -124,7 +148,7 @@ canvas {
 }
 
 .shop-panel button {
-  background: #3b5998;
+  background: linear-gradient(45deg, #3b5998, #4a90e2);
   color: #fff;
   padding: 10px 20px;
   margin: 5px;
@@ -132,10 +156,17 @@ canvas {
   border-radius: 6px;
   cursor: pointer;
   transition: background-color 0.2s;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .shop-panel button:hover {
-  background: #4a90e2;
+  background: linear-gradient(45deg, #4a90e2, #5aaaff);
+}
+
+.shop-panel button:disabled {
+  background: #555;
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .wave-cooldown {
@@ -202,6 +233,7 @@ canvas {
   text-align: center;
   max-width: 500px;
   width: 90%;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
 }
 
 .modal-content h2 {
@@ -236,6 +268,7 @@ canvas {
   padding: 20px;
   border-radius: 8px;
   text-align: center;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
 }
 
 .pause-menu-content h2 {
@@ -276,7 +309,7 @@ canvas {
   border-radius: 6px;
   font-size: 1rem;
   line-height: 1.5;
-  top: -100px;
+  top: -120px; /* Adjusted for icon buttons */
   left: 50%;
   transform: translateX(-50%);
   display: none;
@@ -292,12 +325,13 @@ canvas {
 /* Unit Info Panel Styles */
 .unit-info-panel {
   background: #2c2c2c;
-  padding: 10px;
+  padding: 15px;
   border-radius: 8px;
   margin: 10px auto;
   max-width: 300px;
   text-align: center;
   color: #fff;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
 }
 
 .unit-info-panel h4 {
@@ -308,6 +342,11 @@ canvas {
 .unit-info-panel p {
   margin: 5px 0;
   font-size: 0.9rem;
+}
+
+.stat-icon {
+  font-size: 1.2rem;
+  margin-right: 5px;
 }
 
 /* Responsive Design */
@@ -325,6 +364,12 @@ canvas {
     width: 90%;
     padding: 10px;
     font-size: 0.9rem;
+    box-shadow: 0 2px 3px rgba(0, 0, 0, 0.2);
+  }
+
+  .unit-button {
+    width: 50px; /* Maintain fixed width for icons */
+    height: 50px;
   }
 
   canvas {
@@ -352,7 +397,7 @@ canvas {
 
   .unit-info-panel {
     max-width: 90%;
-    padding: 8px;
+    padding: 10px;
   }
 
   .unit-info-panel p {
@@ -360,17 +405,12 @@ canvas {
   }
 }
 
+/* Damage Text Animation */
 .damage-text {
   position: absolute;
   font-weight: bold;
   font-size: 16px;
   pointer-events: none;
   text-shadow: 1px 1px 2px #000;
-  transition: all 0.5s;
-}
-
-.shop-panel button:disabled {
-  background: #555;
-  cursor: not-allowed;
-  opacity: 0.6;
+  transition: opacity 0.8s ease, transform 0.8s ease;
 }

@@ -379,7 +379,7 @@ const SHOP_ITEMS = {
         showFeedback("Knight unlocked!");
         updateUpgradesDisplay();
       } else {
-        showFeedback("Not enough diamonds!");
+        showFeedback("Not enough diamonds or Knight already unlocked!");
       }
     }
   }
@@ -395,7 +395,7 @@ function initGame() {
   units = [];
   enemyUnits = [];
   gold = 0;
-  diamonds = localStorage.getItem('warriorDiamonds') ? parseInt(localStorage.getItem('warriorDiamonds')) : 100; // Ensure diamonds persist
+  diamonds = localStorage.getItem('warriorDiamonds') ? parseInt(localStorage.getItem('warriorDiamonds')) : 100;
   try {
     localStorage.setItem('warriorDiamonds', diamonds);
   } catch (e) {
@@ -458,7 +458,8 @@ function spawnWave(waveNum) {
       speed: stats.speed,
       damage: stats.damage,
       maxHp: stats.health,
-      opacity: 1
+      opacity: 1,
+      lane: i % 3
     });
   }
   for (let i = 0; i < archerCount; i++) {
@@ -471,7 +472,8 @@ function spawnWave(waveNum) {
       speed: stats.speed,
       damage: stats.damage,
       maxHp: stats.health,
-      opacity: 1
+      opacity: 1,
+      lane: i % 3
     });
   }
   for (let i = 0; i < horseCount; i++) {
@@ -484,7 +486,8 @@ function spawnWave(waveNum) {
       speed: stats.speed,
       damage: stats.damage,
       maxHp: stats.health,
-      opacity: 1
+      opacity: 1,
+      lane: i % 3
     });
   }
   for (let i = 0; i < knightCount; i++) {
@@ -497,7 +500,8 @@ function spawnWave(waveNum) {
       speed: stats.speed,
       damage: stats.damage,
       maxHp: stats.health,
-      opacity: 1
+      opacity: 1,
+      lane: i % 3
     });
   }
 
@@ -509,42 +513,82 @@ function drawBase(x, color, health) {
   const scaledX = x * (canvas.width / 800);
   const baseWidth = 70 * (canvas.width / 800);
   const baseHeight = 130 * (canvas.height / 300);
-  ctx.fillStyle = "#333";
+  
+  // Castle-like base design
+  ctx.fillStyle = "#555";
   ctx.fillRect(scaledX - baseWidth / 2, canvas.height * 0.233, baseWidth, baseHeight);
   ctx.fillStyle = color;
-  ctx.fillRect(scaledX - 20 * (canvas.width / 800), canvas.height * 0.267, 40 * (canvas.width / 800), 110 * (canvas.height / 300));
-  ctx.fillStyle = "#222";
-  ctx.fillRect(scaledX - 15 * (canvas.width / 800), canvas.height * 0.3, 30 * (canvas.width / 800), 80 * (canvas.height / 300));
+  ctx.fillRect(scaledX - 30 * (canvas.width / 800), canvas.height * 0.233, 60 * (canvas.width / 800), baseHeight * 0.8);
+  // Add turrets
+  ctx.fillStyle = "#333";
+  ctx.fillRect(scaledX - baseWidth / 2, canvas.height * 0.2, 15 * (canvas.width / 800), 20 * (canvas.height / 300));
+  ctx.fillRect(scaledX + baseWidth / 2 - 15 * (canvas.width / 800), canvas.height * 0.2, 15 * (canvas.width / 800), 20 * (canvas.height / 300));
 
-  const healthPercentage = Math.max(0, health / (150 + (baseHealthUpgrades * 25)));
-  ctx.fillStyle = "red";
-  ctx.fillRect(scaledX - baseWidth / 2, canvas.height * 0.2, baseWidth, 8 * (canvas.height / 300));
+  // Enhanced health bar
+  const maxHealth = 150 + (baseHealthUpgrades * 25);
+  const healthPercentage = Math.max(0, health / maxHealth);
+  ctx.fillStyle = "rgba(0,0,0,0.7)";
+  ctx.fillRect(scaledX - baseWidth / 2, canvas.height * 0.18, baseWidth, 10 * (canvas.height / 300));
   ctx.fillStyle = healthPercentage > 0.5 ? "#28a745" : healthPercentage > 0.2 ? "#ffd700" : "#dc3545";
-  ctx.fillRect(scaledX - baseWidth / 2, canvas.height * 0.2, baseWidth * healthPercentage, 8 * (canvas.height / 300));
+  ctx.fillRect(scaledX - baseWidth / 2, canvas.height * 0.18, baseWidth * healthPercentage, 10 * (canvas.height / 300));
 
+  // Health text with percentage
   ctx.fillStyle = "#fff";
   ctx.font = `${14 * (canvas.width / 800)}px Roboto`;
-  ctx.fillText(`HP: ${Math.max(0, health)}`, scaledX - baseWidth / 2, canvas.height * 0.183);
-  if (x === 20) { // Player base
-    ctx.fillText(`DEF: ${baseDefenseUpgrades * 10}%`, scaledX - baseWidth / 2, canvas.height * 0.167);
+  ctx.fillText(`HP: ${Math.max(0, health)} (${Math.round(healthPercentage * 100)}%)`, scaledX - baseWidth / 2, canvas.height * 0.167);
+  if (x === 20) {
+    ctx.fillText(`DEF: ${baseDefenseUpgrades * 10}%`, scaledX - baseWidth / 2, canvas.height * 0.15);
   }
 }
 
 function drawUnit(unit) {
-  console.log("Drawing unit:", unit.x, unit.y, unit.opacity);
   const size = 15 * (canvas.width / 800);
+  const shadowSize = size * 1.2;
+
+  // Shadow
   ctx.fillStyle = "rgba(0,0,0,0.4)";
   ctx.beginPath();
-  ctx.arc(unit.x + 2 * (canvas.width / 800) + size, unit.y + 2 * (canvas.height / 300) + size, size, 0, Math.PI * 2);
+  ctx.arc(unit.x + 2 * (canvas.width / 800) + size, unit.y + 2 * (canvas.height / 300) + size, shadowSize, 0, Math.PI * 2);
   ctx.fill();
 
+  // Unit shape based on type
   ctx.fillStyle = unit.type.color;
   ctx.globalAlpha = unit.opacity || 1;
+  ctx.shadowColor = unit.type.color;
+  ctx.shadowBlur = 10;
   ctx.beginPath();
-  ctx.arc(unit.x + size, unit.y + size, size, 0, Math.PI * 2);
+  switch (unit.type.name.toUpperCase()) {
+    case "BARBARIAN":
+      ctx.arc(unit.x + size, unit.y + size, size, 0, Math.PI * 2);
+      break;
+    case "ARCHER":
+      // Triangle
+      ctx.moveTo(unit.x + size, unit.y);
+      ctx.lineTo(unit.x + size * 2, unit.y + size * 2);
+      ctx.lineTo(unit.x, unit.y + size * 2);
+      ctx.closePath();
+      break;
+    case "HORSE":
+      // Pentagon
+      for (let i = 0; i < 5; i++) {
+        const angle = (Math.PI * 2 * i) / 5 - Math.PI / 2;
+        const px = unit.x + size + Math.cos(angle) * size;
+        const py = unit.y + size + Math.sin(angle) * size;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      break;
+    case "KNIGHT":
+      // Rectangle
+      ctx.rect(unit.x, unit.y, size * 2, size * 2);
+      break;
+  }
   ctx.fill();
+  ctx.shadowBlur = 0;
   ctx.globalAlpha = 1;
 
+  // Health bar
   const maxHealth = unit.maxHp || (unit.type.health + (unitHealthUpgrades * 3));
   const healthPercentage = Math.max(0, unit.hp / maxHealth);
   ctx.fillStyle = "rgba(0,0,0,0.8)";
@@ -552,6 +596,7 @@ function drawUnit(unit) {
   ctx.fillStyle = healthPercentage > 0.6 ? "#28a745" : healthPercentage > 0.3 ? "#ffd700" : "#dc3545";
   ctx.fillRect(unit.x - 5 * (canvas.width / 800), unit.y - 12 * (canvas.height / 300), (size * 2 + 10 * (canvas.width / 800)) * healthPercentage, 6 * (canvas.height / 300));
 
+  // Unit label
   ctx.fillStyle = "#fff";
   ctx.font = `${12 * (canvas.width / 800)}px Roboto`;
   ctx.textAlign = "center";
@@ -606,7 +651,6 @@ function updateShop() {
   }
 }
 
-// New Function to Update Upgrades Display
 function updateUpgradesDisplay() {
   const upgradesList = document.getElementById("upgradesList");
   if (!upgradesList) return;
@@ -634,13 +678,10 @@ function spawnUnit() {
         speed: Number(selectedUnitType.speed),
         damage: Number(selectedUnitType.damage),
         maxHp: Number(selectedUnitType.health) + (unitHealthUpgrades * 3),
-        opacity: 1, // Ensure visibility
-        fadeIn: false, // Disable fade-in temporarily
-        fadeTimer: 0,
+        opacity: 1,
         lane: lane,
         lastAttack: null
       };
-      console.log("Unit spawn coordinates:", newUnit.x, newUnit.y, "Canvas size:", canvas.width, canvas.height);
       if (newUnit.x < 0 || newUnit.x > canvas.width || newUnit.y < 0 || newUnit.y > canvas.height) {
         console.error("Unit spawned outside canvas:", newUnit.x, newUnit.y);
         showFeedback("Unit spawned off-screen!");
@@ -653,7 +694,6 @@ function spawnUnit() {
         });
       }
       updateFooter();
-      console.log("Spawned unit:", newUnit);
     } else {
       showFeedback("Not enough gold!");
     }
@@ -685,7 +725,7 @@ function showDamageNumber(x, y, amount, isEnemy) {
   damageText.style.color = isEnemy ? "#dc3545" : "#ffd700";
   document.body.appendChild(damageText);
   setTimeout(() => {
-    damageText.style.top = `${y + canvas.offsetTop - 60}px`;
+    damageText.style.transform = "translateY(-30px)";
     damageText.style.opacity = "0";
   }, 50);
   setTimeout(() => {
@@ -722,25 +762,10 @@ function showGameOverModal(message) {
 
 // Battle System
 function update() {
-  console.log("Update loop - gameActive:", gameActive, "gamePaused:", gamePaused, "gameOver:", gameOver, "Units:", units.length);
   if (!gameActive || gameOver || gamePaused) return;
 
   // Update spatial grid
   updateGrid();
-
-  // Skip fade-in for now (commented out)
-  /*
-  units.forEach(unit => {
-    if (unit.fadeIn) {
-      unit.fadeTimer += 1/60;
-      unit.opacity = Math.min(1, unit.fadeTimer / 0.5);
-      if (unit.opacity >= 1) {
-        unit.fadeIn = false;
-        unit.opacity = 1;
-      }
-    }
-  });
-  */
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   drawBase(20, "#3b5998", baseHealth);
@@ -866,9 +891,11 @@ function update() {
         const dx = closestAlly.x - unit.x;
         const dy = closestAlly.y - unit.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
+        const targetY = canvas.height * 0.333 + unit.lane * (canvas.height * 0.166);
+        const yDiff = targetY - unit.y;
         if (distance > 0) {
           unit.x += (dx / distance) * unit.speed * (canvas.width / 800);
-          unit.y += (dy / distance) * unit.speed * (canvas.height / 300);
+          unit.y += ((dy / distance) * unit.speed * 0.5 + yDiff * 0.1) * (canvas.height / 300);
         }
       }
     } else {
@@ -929,8 +956,13 @@ function addKnightButton() {
     knightButton.id = "knightButton";
     knightButton.className = "unit-button";
     knightButton.dataset.unit = "KNIGHT";
-    knightButton.textContent = "Knight (4)";
-    knightButton.innerHTML += `<span class="tooltip">${generateTooltip("Knight")}</span>`;
+    knightButton.setAttribute("aria-label", "Select Knight unit");
+    knightButton.innerHTML = `
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M6 4H18V8H20V14H18V18H16V14H8V18H6V14H4V8H6V4ZM8 8H16V6H8V8Z" fill="#ffffff"/>
+      </svg>
+      <span class="tooltip">${generateTooltip("Knight")}</span>
+    `;
     document.querySelector(".unit-controls").appendChild(knightButton);
     knightButton.addEventListener("click", () => {
       selectedUnitType = UNIT_TYPES.KNIGHT;
@@ -957,7 +989,10 @@ function addTooltips() {
   unitButtons.forEach(button => {
     const unit = button.dataset.unit;
     if (unit !== "KNIGHT" || (unit === "KNIGHT" && UNIT_TYPES.KNIGHT.unlocked)) {
-      button.innerHTML = button.textContent + `<span class="tooltip">${tooltips[unit]}</span>`;
+      const tooltip = button.querySelector(".tooltip");
+      if (tooltip) {
+        tooltip.innerHTML = tooltips[unit];
+      }
     }
   });
 }
@@ -1026,10 +1061,10 @@ function updateUnitInfoPanel() {
   panel.innerHTML = `
     <h4>${selectedUnitType.name}</h4>
     <p>${description}</p>
-    <p>Health: ${health}</p>
-    <p>Damage: ${damage}</p>
-    <p>Speed: ${speed}</p>
-    <p>Cost: ${cost} gold</p>
+    <p><span class="stat-icon">❤️</span> Health: ${health}</p>
+    <p><span class="stat-icon">⚔️</span> Damage: ${damage}</p>
+    <p><span class="stat-icon">🏃</span> Speed: ${speed}</p>
+    <p><span class="stat-icon">💰</span> Cost: ${cost} gold</p>
   `;
 }
 
