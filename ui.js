@@ -6,7 +6,7 @@
   UI.goldDisplay = document.getElementById("goldDisplay");
   UI.diamondDisplay = document.getElementById("diamondDisplay");
   UI.waveDisplay = document.getElementById("waveDisplay");
-  UI.unitButtons = document.querySelectorAll(".unit-button"); // NodeList, might need update if buttons change
+  UI.unitButtons = document.querySelectorAll(".unit-button");
   UI.pauseMenu = document.getElementById("pauseMenu");
   UI.gameOverModal = document.getElementById("gameOverModal");
   UI.gameOverMessage = document.getElementById("gameOverMessage");
@@ -16,11 +16,10 @@
   UI.upgradesList = document.getElementById("upgradesList");
   UI.waveCooldownElement = document.getElementById("waveCooldown");
   UI.unitInfoPanel = document.getElementById("unitInfoPanel");
-  UI.pauseButton = document.getElementById("pauseButton"); // Added reference
+  UI.pauseButton = document.getElementById("pauseButton");
 
-  // --- Knight Button References ---
   UI.knightButton = document.getElementById('knightButton');
-  UI.knightButtonTooltip = UI.knightButton ? UI.knightButton.querySelector('.tooltip') : null; // Get tooltip span inside knight button
+  UI.knightButtonTooltip = UI.knightButton ? UI.knightButton.querySelector('.tooltip') : null;
 
   // Audio Elements
   UI.spawnSound = document.getElementById("spawnSound");
@@ -30,11 +29,10 @@
 
   // Set default volume
   [UI.spawnSound, UI.attackSound, UI.winSound, UI.loseSound].forEach(audio => {
-    if (audio) audio.volume = 0.3; // Lowered volume slightly
+    if (audio) audio.volume = 0.3;
   });
 
   UI.checkAudioFiles = function () {
-    // (Keep existing logic)
     const audioFiles = [
       { element: UI.spawnSound, path: "./sounds/spawn.mp3" },
       { element: UI.attackSound, path: "./sounds/attack.mp3" },
@@ -43,10 +41,10 @@
     ];
 
     audioFiles.forEach(audio => {
-        if (!audio.element) {
-            console.warn(`Audio element for ${audio.path} not found in HTML.`);
-            return;
-        }
+      if (!audio.element) {
+        console.warn(`Audio element for ${audio.path} not found in HTML.`);
+        return;
+      }
       fetch(audio.path, { method: "HEAD" })
         .then(response => {
           if (!response.ok) {
@@ -82,7 +80,7 @@
 
   UI.drawWaveProgress = function () {
     if (!this.waveProgressBar) return;
-    const progress = Math.min(1, (window.GameState.wave - 1) / window.GameState.maxWaves); // Cap at 1
+    const progress = Math.min(1, (window.GameState.wave - 1) / window.GameState.maxWaves);
     this.waveProgressBar.style.width = `${progress * 100}%`;
   };
 
@@ -92,21 +90,18 @@
     if (window.GameState.baseHealthUpgrades > 0) upgradesText += `<li>Base Health: +${window.GameState.baseHealthUpgrades * 25} HP (${window.GameState.baseHealthUpgrades})</li>`;
     if (window.GameState.unitHealthUpgrades > 0) upgradesText += `<li>Unit Health: +${window.GameState.unitHealthUpgrades * 3} HP (${window.GameState.unitHealthUpgrades})</li>`;
     if (window.GameState.unitDamageUpgrades > 0) upgradesText += `<li>Unit Damage: +${window.GameState.unitDamageUpgrades * 2} DMG (${window.GameState.unitDamageUpgrades})</li>`;
-    if (window.GameState.goldProductionUpgrades > 0) upgradesText += `<li>Gold Rate: ${window.GameState.goldProductionRate}ms (${window.GameState.goldProductionUpgrades})</li>`; // Show interval time
+    if (window.GameState.goldProductionUpgrades > 0) upgradesText += `<li>Gold Rate: ${window.GameState.goldProductionRate}ms (${window.GameState.goldProductionUpgrades})</li>`;
     if (window.GameState.baseDefenseUpgrades > 0) upgradesText += `<li>Base Defense: ${window.GameState.baseDefenseUpgrades * 10}% (${window.GameState.baseDefenseUpgrades})</li>`;
-    // --- Check GameState flag for Knight ---
     if (window.GameState.isKnightUnlocked) upgradesText += `<li>Knight: Unlocked</li>`;
-    // --- End Knight Check ---
     this.upgradesList.innerHTML = upgradesText ? `<ul>${upgradesText}</ul>` : "<p>No upgrades purchased yet.</p>";
   };
 
   UI.showFeedback = function (message) {
     if (!this.feedbackMessage) return;
     this.feedbackMessage.textContent = message;
-    this.feedbackMessage.classList.remove("show"); // Remove first to reset animation if concurrent calls
-    void this.feedbackMessage.offsetWidth; // Trigger reflow
+    this.feedbackMessage.classList.remove("show");
+    void this.feedbackMessage.offsetWidth;
     this.feedbackMessage.classList.add("show");
-    // Clear previous timeout if exists
     if (this.feedbackTimeout) clearTimeout(this.feedbackTimeout);
     this.feedbackTimeout = setTimeout(() => {
       this.feedbackMessage.classList.remove("show");
@@ -114,74 +109,65 @@
   };
 
   UI.showDamageNumber = function (x, y, amount, isPlayerTakingDamage) {
-    if (!amount || amount <= 0) return; // Don't show 0 damage
+    if (!amount || amount <= 0) return;
 
-    // Play sound only when player units deal damage
     if (window.GameState.soundEnabled && !isPlayerTakingDamage) {
-      // --- ADDED DEBUG LOG ---
       console.log("Attempting to play audio from src:", this.attackSound ? this.attackSound.src : 'ERROR: attackSound element not found');
-      // --- END DEBUG LOG ---
-
-      // Create a new audio element for each attack to allow overlapping sounds
       const attackAudio = new Audio(this.attackSound.src);
-      attackAudio.volume = this.attackSound.volume; // Use configured volume
-      attackAudio.play().catch(e => console.error("Attack sound error:", e)); // Line 124 (approx)
+      attackAudio.volume = this.attackSound.volume;
+      attackAudio.play().catch(e => console.error("Attack sound error:", e));
     }
 
     const damageText = document.createElement("div");
     damageText.textContent = `-${Math.floor(amount)}`;
     damageText.className = "damage-text";
-    // Position relative to canvas, not body
     const canvasRect = window.Canvas.canvas.getBoundingClientRect();
     damageText.style.left = `${x + canvasRect.left}px`;
-    damageText.style.top = `${y + canvasRect.top - 20}px`; // Adjust vertical offset
-    damageText.style.color = isPlayerTakingDamage ? "#ff4d4d" : "#ffd700"; // Brighter red for player damage
+    damageText.style.top = `${y + canvasRect.top - 20}px`;
+    damageText.style.color = isPlayerTakingDamage ? "#ff4d4d" : "#ffd700";
 
-    document.body.appendChild(damageText); // Append to body to overlay canvas
+    document.body.appendChild(damageText);
 
-    // Animation
     requestAnimationFrame(() => {
-        damageText.style.transform = "translateY(-40px)"; // Move further up
-        damageText.style.opacity = "0";
+      damageText.style.transform = "translateY(-40px)";
+      damageText.style.opacity = "0";
     });
 
     setTimeout(() => {
-      if (document.body.contains(damageText)) { // Check if still exists
-           document.body.removeChild(damageText);
+      if (document.body.contains(damageText)) {
+        document.body.removeChild(damageText);
       }
-    }, 800); // Slightly shorter duration
+    }, 800);
   };
 
   UI.showGameOverModal = function (message) {
-    if (window.GameState.gameOver) return; // Prevent multiple calls
-
+    if (window.GameState.gameOver) return;
     window.GameState.gameOver = true;
-    window.GameState.gameActive = false; // Ensure game stops
-    window.GameState.gamePaused = true; // Treat as paused
+    window.GameState.gameActive = false;
+    window.GameState.gamePaused = true;
+    window.Game.gameLoopRunning = false; // Reset loop flag
 
     if (window.GameState.waveCooldownInterval) {
       clearInterval(window.GameState.waveCooldownInterval);
       window.GameState.waveCooldownInterval = null;
       this.hideWaveCooldown();
     }
-     if (window.GameState.goldInterval) {
-         clearInterval(window.GameState.goldInterval); // Stop gold production
-         window.GameState.goldInterval = null;
-     }
-
+    if (window.GameState.goldInterval) {
+      clearInterval(window.GameState.goldInterval);
+      window.GameState.goldInterval = null;
+    }
 
     this.gameOverMessage.textContent = message;
     this.gameOverWave.textContent = `Reached Wave: ${window.GameState.wave}`;
     this.gameOverModal.style.display = "flex";
-    this.updateButtonStates(); // Disable most buttons
+    this.updateButtonStates();
 
-    // Play sound only once
     if (window.GameState.soundEnabled) {
-        const soundToPlay = (message === "Victory!") ? this.winSound : this.loseSound;
-        if (soundToPlay) {
-            soundToPlay.currentTime = 0; // Rewind if already playing
-            soundToPlay.play().catch(e => console.error("Game Over sound error:", e));
-        }
+      const soundToPlay = (message === "Victory!") ? this.winSound : this.loseSound;
+      if (soundToPlay) {
+        soundToPlay.currentTime = 0;
+        soundToPlay.play().catch(e => console.error("Game Over sound error:", e));
+      }
     }
   };
 
@@ -189,35 +175,29 @@
     if (this.tutorialModal) this.tutorialModal.style.display = "flex";
   };
 
-  // --- Removed addKnightButton function - button exists in HTML ---
-
   UI.updateUnitSelectionUI = function () {
     const selectedTypeName = window.Units.selectedUnitType ? window.Units.selectedUnitType.name.toUpperCase() : null;
     this.unitButtons.forEach(btn => {
-        if (btn.dataset.unit === selectedTypeName) {
-            btn.classList.add("selected"); // Use 'selected' class from CSS
-        } else {
-            btn.classList.remove("selected");
-        }
+      if (btn.dataset.unit === selectedTypeName) {
+        btn.classList.add("selected");
+      } else {
+        btn.classList.remove("selected");
+      }
     });
-    this.updateUnitInfoPanel(); // Update info panel when selection changes
+    this.updateUnitInfoPanel();
   };
 
   UI.addTooltips = function () {
-    // Refresh NodeList in case buttons were added/removed (though Knight isn't added dynamically now)
     this.unitButtons = document.querySelectorAll(".unit-button");
     this.unitButtons.forEach(button => {
       const unitType = button.dataset.unit;
       if (unitType && window.Units.UNIT_TYPES[unitType]) {
-          const tooltipSpan = button.querySelector(".tooltip");
-          if (tooltipSpan) {
-              // Generate base tooltip content
-              tooltipSpan.innerHTML = this.generateTooltip(window.Units.UNIT_TYPES[unitType].name);
-              // Knight specific text (locked/unlocked) is handled by updateKnightButtonState
-          }
+        const tooltipSpan = button.querySelector(".tooltip");
+        if (tooltipSpan) {
+          tooltipSpan.innerHTML = this.generateTooltip(window.Units.UNIT_TYPES[unitType].name);
+        }
       }
     });
-    // Ensure Knight tooltip is correct based on current state
     this.updateKnightButtonState();
   };
 
@@ -225,9 +205,8 @@
     const unit = window.Units.UNIT_TYPES[unitName.toUpperCase()];
     if (!unit) return "Unit data not found";
 
-    // Calculate stats including upgrades
     const health = unit.health + (window.GameState.unitHealthUpgrades * 3);
-    const damage = unit.damage; // Damage upgrades are directly in UNIT_TYPES now
+    const damage = unit.damage;
     const speed = unit.speed.toFixed(1);
     const cost = unit.cost;
     let description = "";
@@ -236,10 +215,9 @@
       case "BARBARIAN": description = "Balanced fighter."; break;
       case "ARCHER": description = "High damage, fragile."; break;
       case "HORSE": description = "Fast and strong."; break;
-      case "KNIGHT": description = "Tanky, high damage."; break; // Base description
+      case "KNIGHT": description = "Tanky, high damage."; break;
     }
 
-    // Basic HTML structure for the tooltip content
     return `
       <strong>${unitName}</strong><br>
       ${description}<br>
@@ -252,8 +230,8 @@
 
   UI.updateUnitInfoPanel = function () {
     if (!this.unitInfoPanel || !window.Units.selectedUnitType) {
-        if (this.unitInfoPanel) this.unitInfoPanel.innerHTML = ""; // Clear panel if no unit selected
-        return;
+      if (this.unitInfoPanel) this.unitInfoPanel.innerHTML = "";
+      return;
     }
     const unit = window.Units.selectedUnitType;
     const health = unit.health + (window.GameState.unitHealthUpgrades * 3);
@@ -263,13 +241,12 @@
     let description = "";
 
     switch (unit.name.toUpperCase()) {
-       case "BARBARIAN": description = "Balanced fighter, good for early waves."; break;
-       case "ARCHER": description = "High damage, fragile. Great for ranged support."; break;
-       case "HORSE": description = "Fast and strong, ideal for quick strikes."; break;
-       case "KNIGHT": description = "Tanky with high damage, excels in late waves."; break;
+      case "BARBARIAN": description = "Balanced fighter, good for early waves."; break;
+      case "ARCHER": description = "High damage, fragile. Great for ranged support."; break;
+      case "HORSE": description = "Fast and strong, ideal for quick strikes."; break;
+      case "KNIGHT": description = "Tanky with high damage, excels in late waves."; break;
     }
 
-    // Check if Knight is selected but locked
     const isLockedKnight = (unit.name === "Knight" && !window.GameState.isKnightUnlocked);
 
     this.unitInfoPanel.innerHTML = `
@@ -290,62 +267,40 @@
     const restartButton = document.getElementById("restartButton");
     const spawnButton = document.getElementById("spawnButton");
 
-    // Fight button enabled only when game not active, not over, and wave cooldown finished
     if (fightButton) fightButton.disabled = window.GameState.gameActive || window.GameState.gameOver || window.GameState.waveCooldown;
-    // Pause button enabled only when game is active and not over
     if (pauseButton) pauseButton.disabled = !window.GameState.gameActive || window.GameState.gameOver;
-    // Surrender button enabled only when game is active and not over
     if (surrenderButton) surrenderButton.disabled = !window.GameState.gameActive || window.GameState.gameOver;
-    // Restart button always enabled? Or maybe disable during active game? Let's keep it enabled.
-    // if (restartButton) restartButton.disabled = false;
-    // Spawn button enabled only when game active, not paused, not over
     if (spawnButton) spawnButton.disabled = !window.GameState.gameActive || window.GameState.gamePaused || window.GameState.gameOver;
 
-    // Update Pause button text
     if (pauseButton) pauseButton.textContent = window.GameState.gamePaused ? "Resume" : "Pause";
 
-    // Update Knight button state separately
     this.updateKnightButtonState();
   };
 
-  // --- New Function to Update Knight Button ---
   UI.updateKnightButtonState = function() {
-      if (!this.knightButton) {
-          // console.warn("Knight button element not found in UI cache.");
-          // Try to find it again, maybe it was added later (though it shouldn't be now)
-          this.knightButton = document.getElementById('knightButton');
-          this.knightButtonTooltip = this.knightButton ? this.knightButton.querySelector('.tooltip') : null;
-          if (!this.knightButton) return; // Still not found, exit
-      }
+    if (!this.knightButton) {
+      this.knightButton = document.getElementById('knightButton');
+      this.knightButtonTooltip = this.knightButton ? this.knightButton.querySelector('.tooltip') : null;
+    }
+    if (!this.knightButton) {
+      console.warn("Knight button not found in DOM.");
+      return;
+    }
 
-      const isUnlocked = window.GameState.isKnightUnlocked;
+    const isUnlocked = window.GameState.isKnightUnlocked;
 
-      this.knightButton.disabled = !isUnlocked; // Disable if not unlocked
+    this.knightButton.disabled = !isUnlocked;
+    this.knightButton.classList.toggle('locked', !isUnlocked);
+    this.knightButton.setAttribute('aria-label', `Select Knight unit${isUnlocked ? '' : ' (Locked)'}`);
 
-      if (isUnlocked) {
-          this.knightButton.classList.remove('locked');
-          this.knightButton.setAttribute('aria-label', 'Select Knight unit');
-          // Update tooltip text (remove locked status)
-          if (this.knightButtonTooltip) {
-               // Regenerate tooltip content without locked status
-               this.knightButtonTooltip.innerHTML = this.generateTooltip("Knight");
-          }
-      } else {
-          this.knightButton.classList.add('locked'); // Ensure locked class is present
-          this.knightButton.setAttribute('aria-label', 'Select Knight unit (Locked)');
-           // Ensure tooltip text shows locked status
-           if (this.knightButtonTooltip) {
-               // Regenerate base tooltip and add locked info
-               this.knightButtonTooltip.innerHTML = this.generateTooltip("Knight") + '<br><span style="color: #ffcc00;">(Unlock in Shop)</span>';
-           }
-      }
-      // Also update info panel if Knight is currently selected
-      if (window.Units.selectedUnitType && window.Units.selectedUnitType.name === "Knight") {
-          this.updateUnitInfoPanel();
-      }
+    if (this.knightButtonTooltip) {
+      this.knightButtonTooltip.innerHTML = this.generateTooltip("Knight") + (isUnlocked ? '' : '<br><span style="color: #ffcc00;">(Unlock in Shop)</span>');
+    }
+
+    if (window.Units.selectedUnitType && window.Units.selectedUnitType.name === "Knight") {
+      this.updateUnitInfoPanel();
+    }
   };
-  // --- End New Function ---
-
 
   // Expose UI
   window.UI = UI;

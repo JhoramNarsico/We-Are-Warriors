@@ -1,138 +1,99 @@
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>We Are Warriors</title>
-  <link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Warrior Defense</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header class="game-header">
-    <h1>We Are Warriors</h1>
-  </header>
-
-  <main class="game-container">
-    <section class="unit-controls">
-      <button id="barbarianButton" class="unit-button" data-unit="BARBARIAN" aria-label="Select Barbarian unit">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M12 4C9.79086 4 8 5.79086 8 8C8 10.2091 9.79086 12 12 12C14.2091 12 16 10.2091 16 8C16 5.79086 14.2091 4 12 4ZM12 14C8.13401 14 5 17.134 5 21H19C19 17.134 15.866 14 12 14Z" fill="#ffffff"/>
-        </svg>
-        <span class="tooltip">Barbarian<br>Balanced fighter, good for early waves.<br>Health: 15<br>Damage: 3<br>Speed: 1.1<br>Cost: 5 gold</span>
-      </button>
-      <button id="archerButton" class="unit-button" data-unit="ARCHER" aria-label="Select Archer unit">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M12 4L8 8H10V14H14V8H16L12 4ZM5 16V18H19V16H5ZM5 20V22H19V20H5Z" fill="#ffffff"/>
-        </svg>
-        <span class="tooltip">Archer<br>High damage, fragile. Great for ranged support.<br>Health: 8<br>Damage: 6<br>Speed: 1.3<br>Cost: 8 gold</span>
-      </button>
-      <button id="horseButton" class="unit-button" data-unit="HORSE" aria-label="Select Horse unit">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M18 6C18 4.89543 17.1046 4 16 4H8C6.89543 4 6 4.89543 6 6V8H4V14H6V18H8V14H16V18H18V14H20V8H18V6ZM16 8H8V6H16V8Z" fill="#ffffff"/>
-        </svg>
-        <span class="tooltip">Horse<br>Fast and strong, ideal for quick strikes.<br>Health: 25<br>Damage: 12<br>Speed: 2.2<br>Cost: 12 gold</span>
-      </button>
-      <!-- Added Knight Button -->
-      <button id="knightButton" class="unit-button locked" data-unit="KNIGHT" aria-label="Select Knight unit (Locked)" disabled>
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M12 2L4 6V12C4 16.4 7.6 20.2 12 21.4C16.4 20.2 20 16.4 20 12V6L12 2Z" fill="#ffffff"/> <!-- Simple Shield Icon -->
-        </svg>
-        <span class="tooltip">Knight (Locked)<br>Tanky, high damage. Great frontline unit.<br>Health: 35<br>Damage: 8<br>Speed: 0.9<br>Cost: 15 gold<br>(Unlock in Shop)</span>
-      </button>
-      <!-- End Added Knight Button -->
-      <button id="spawnButton" class="spawn-button" aria-label="Spawn selected unit">Spawn (Space)</button>
-    </section>
-
-    <div id="unitInfoPanel" class="unit-info-panel"></div>
-
-    <section class="game-canvas">
-      <canvas id="gameCanvas" width="800" height="300" aria-label="Game battlefield"></canvas>
-      <div id="waveProgress" class="wave-progress">
-        <div id="waveProgressBar"></div>
-      </div>
-    </section>
-
-    <section class="game-controls">
-      <button id="fightButton" class="control-button" aria-label="Start fight">Fight!</button>
-      <button id="pauseButton" class="control-button" aria-label="Pause or resume game">Pause</button>
-      <button id="surrenderButton" class="control-button" aria-label="Surrender game">Surrender</button>
-      <button id="restartButton" class="control-button" aria-label="Restart game">Restart</button>
-      <button id="soundToggleButton" class="control-button" aria-label="Toggle sound">Sound: On</button>
-    </section>
-
-    <section id="shop" class="shop-panel"></section>
-    <div id="waveCooldown" class="wave-cooldown"></div>
-    <div id="feedbackMessage" class="feedback-message"></div>
-
-    <!-- Pause Menu -->
-    <div id="pauseMenu" class="pause-menu" style="display: none;">
-      <div class="pause-menu-content">
-        <h2>Paused</h2>
-        <button id="resumeButton" class="control-button" aria-label="Resume game">Resume</button>
-        <button id="toggleShopButton" class="control-button" aria-label="Show or hide shop">Show Shop</button>
-        <button id="surrenderPauseButton" class="control-button" aria-label="Surrender from pause menu">Surrender</button>
-        <div id="upgradesDisplay" class="upgrades-display">
-          <h3>Your Upgrades</h3>
-          <p id="upgradesList"></p>
+    <div class="game-container">
+        <div class="header">
+            <div class="status-display">
+                <span><span class="icon">💰</span><span id="goldDisplay">0</span></span>
+                <span><span class="icon">💎</span><span id="diamondDisplay">0</span></span>
+                <span><span class="icon">🌊</span><span id="waveDisplay">1</span></span>
+            </div>
+            <div class="wave-progress">
+                <div id="waveProgressBar"></div>
+            </div>
+            <button id="soundToggleButton" class="control-button">Sound: On</button>
         </div>
-      </div>
+        <div class="sidebar-left">
+            <div class="unit-buttons">
+                <button class="unit-button" data-unit="BARBARIAN" aria-label="Select Barbarian unit">
+                    Barbarian
+                    <span class="tooltip"></span>
+                </button>
+                <button class="unit-button" data-unit="ARCHER" aria-label="Select Archer unit">
+                    Archer
+                    <span class="tooltip"></span>
+                </button>
+                <button class="unit-button" data-unit="HORSE" aria-label="Select Horse unit">
+                    Horse
+                    <span class="tooltip"></span>
+                </button>
+                <button id="knightButton" class="unit-button" data-unit="KNIGHT" aria-label="Select Knight unit (Locked)">
+                    Knight
+                    <span class="tooltip"></span>
+                </button>
+            </div>
+            <div id="unitInfoPanel"></div>
+        </div>
+        <div class="canvas-container">
+            <canvas id="gameCanvas"></canvas>
+            <div id="waveCooldown"></div>
+        </div>
+        <div class="sidebar-right">
+            <div class="shop" id="shop">
+                <h3>Upgrades</h3>
+                <!-- Shop items will be dynamically populated -->
+            </div>
+            <button id="toggleShopButton" class="control-button">Show Shop</button>
+        </div>
+        <div class="footer">
+            <button id="fightButton" class="control-button">Fight!</button>
+            <button id="spawnButton" class="control-button">Spawn Unit</button>
+            <button id="pauseButton" class="control-button">Pause</button>
+            <button id="surrenderButton" class="control-button">Surrender</button>
+            <button id="restartButton" class="control-button">Restart</button>
+        </div>
     </div>
-
-    <!-- Game Over Modal -->
-    <div id="gameOverModal" class="modal" style="display: none;">
-      <div class="modal-content">
-        <h2 id="gameOverMessage"></h2>
-        <p id="gameOverWave"></p>
-        <button id="gameOverRestartButton" class="control-button" aria-label="Restart after game over">Restart</button>
-        <button id="gameOverShopButton" class="control-button" aria-label="Visit shop after game over">Shop</button>
-      </div>
+    <div id="feedbackMessage"></div>
+    <div id="pauseMenu">
+        <div>
+            <h2>Paused</h2>
+            <div id="upgradesList"></div>
+            <button id="resumeButton" class="control-button">Resume</button>
+            <button id="surrenderPauseButton" class="control-button">Surrender</button>
+            <button id="toggleShopButton" class="control-button">Toggle Shop</button>
+        </div>
     </div>
-
-    <!-- Tutorial Modal -->
-    <div id="tutorialModal" class="modal" style="display: none;">
-      <div class="modal-content">
-        <h2>Welcome to We Are Warriors!</h2>
-        <p>Use gold to spawn units (Barbarian, Archer, Horse, Knight) to fight enemy waves.</p>
-        <p><strong>Costs:</strong> Barbarian (5), Archer (8), Horse (12), Knight (15).</p>
-        <p><strong>Unit Roles:</strong><br>
-          - Barbarian: Balanced, low cost.<br>
-          - Archer: High damage, low health.<br>
-          - Horse: Fast, strong.<br>
-          - Knight: Tanky, high damage (unlockable).</p>
-        <p><strong>Waves:</strong> Survive 50 waves. Enemies get stronger each wave.</p>
-        <p><strong>Tip:</strong> Use diamonds to upgrade units and base in the shop.</p>
-        <button id="startTutorialButton" class="control-button" aria-label="Start game from tutorial">Start Game</button>
-      </div>
+    <div id="gameOverModal">
+        <div>
+            <h2 id="gameOverMessage"></h2>
+            <p id="gameOverWave"></p>
+            <button id="gameOverRestartButton" class="control-button">Restart</button>
+            <button id="gameOverShopButton" class="control-button">Shop</button>
+        </div>
     </div>
-  </main>
-
-  <footer class="game-footer">
-    <p>Gold: <span id="goldDisplay">0</span> | Diamonds: <span id="diamondDisplay">0</span> | Wave: <span id="waveDisplay">1</span></p>
-  </footer>
-
-  <!-- Audio elements -->
-  <audio id="spawnSound" preload="auto">
-    <source src="./sounds/spawn.mp3" type="audio/mpeg">
-    <source src="./sounds/spawn.ogg" type="audio/ogg">
-  </audio>
-  <audio id="attackSound" preload="auto">
-    <source src="./sounds/attack.mp3" type="audio/mpeg">
-    <source src="./sounds/attack.ogg" type="audio/ogg">
-  </audio>
-  <audio id="winSound" preload="auto">
-    <source src="./sounds/win.mp3" type="audio/mpeg">
-    <source src="./sounds/win.ogg" type="audio/ogg">
-  </audio>
-  <audio id="loseSound" preload="auto">
-    <source src="./sounds/lose.mp3" type="audio/mpeg">
-    <source src="./sounds/lose.ogg" type="audio/ogg">
-  </audio>
-
-  <script src="gameState.js"></script>
-  <script src="units.js"></script>
-  <script src="canvas.js"></script>
-  <script src="ui.js"></script>
-  <script src="shop.js"></script>   <!-- Shop depends on GameState, Units, UI -->
-  <script src="events.js"></script> <!-- Events depends on all modules -->
-  <script src="game.js"></script>   <!-- Game depends on all modules -->
+    <div id="tutorialModal">
+        <div>
+            <h2>Welcome to Warrior Defense!</h2>
+            <p>Select units, spawn them to fight enemies, and protect your base!</p>
+            <button id="startTutorialButton" class="control-button">Start Game</button>
+        </div>
+    </div>
+    <audio id="spawnSound" src="./sounds/spawn.mp3"></audio>
+    <audio id="attackSound" src="./sounds/attack.mp3"></audio>
+    <audio id="winSound" src="./sounds/win.mp3"></audio>
+    <audio id="loseSound" src="./sounds/lose.mp3"></audio>
+    <script src="gameState.js"></script>
+    <script src="canvas.js"></script>
+    <script src="units.js"></script>
+    <script src="ui.js"></script>
+    <script src="shop.js"></script>
+    <script src="events.js"></script>
+    <script src="game.js"></script>
 </body>
 </html>
-

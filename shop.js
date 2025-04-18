@@ -5,22 +5,27 @@
   Shop.SHOP_ITEMS = {
     GOLD_PRODUCTION: {
       name: "Gold Production +",
-      description: "Increase gold gain rate", // Simpler description
+      description: "Increase gold gain rate",
       getPrice: () => 10 + (window.GameState.goldProductionUpgrades * 15),
       apply: function() {
         if (window.GameState.diamonds >= this.getPrice()) {
           window.GameState.diamonds -= this.getPrice();
           window.GameState.goldProductionUpgrades++;
-          // Update rate in GameState and restart interval
           window.GameState.goldProductionRate = Math.max(300, 800 - (window.GameState.goldProductionUpgrades * 50));
-          clearInterval(window.GameState.goldInterval); // Clear existing interval
-          window.GameState.goldInterval = setInterval(() => { // Start new one
-              if (window.GameState.gameActive && !window.GameState.gameOver && !window.GameState.gamePaused) {
-                  window.GameState.gold += 1 + Math.floor(window.GameState.wave / 5);
-                  window.UI.updateFooter();
-              }
+          
+          // Clear any existing interval
+          if (window.GameState.goldInterval) {
+            clearInterval(window.GameState.goldInterval);
+            window.GameState.goldInterval = null;
+          }
+          
+          // Start new interval
+          window.GameState.goldInterval = setInterval(() => {
+            if (window.GameState.gameActive && !window.GameState.gameOver && !window.GameState.gamePaused) {
+              window.GameState.gold += 1 + Math.floor(window.GameState.wave / 5);
+              window.UI.updateFooter();
+            }
           }, window.GameState.goldProductionRate);
-
 
           try {
             localStorage.setItem('warriorDiamonds', window.GameState.diamonds);
@@ -47,12 +52,10 @@
         if (window.GameState.diamonds >= this.getPrice()) {
           window.GameState.diamonds -= this.getPrice();
           window.GameState.baseHealthUpgrades++;
-          // Update current health proportionally and max health
           const oldMaxHealth = 150 + ((window.GameState.baseHealthUpgrades - 1) * 25);
           const healthPercentage = window.GameState.baseHealth / oldMaxHealth;
           const newMaxHealth = 150 + (window.GameState.baseHealthUpgrades * 25);
-          window.GameState.baseHealth = Math.round(newMaxHealth * healthPercentage); // Heal proportionally
-
+          window.GameState.baseHealth = Math.round(newMaxHealth * healthPercentage);
 
           try {
             localStorage.setItem('warriorDiamonds', window.GameState.diamonds);
@@ -64,10 +67,8 @@
 
           window.UI.updateFooter();
           Shop.updateShop();
-          window.UI.showFeedback("Base health increased!"); // Effect is immediate now
+          window.UI.showFeedback("Base health increased!");
           window.UI.updateUpgradesDisplay();
-          // Redraw base immediately if canvas drawing depends on max health for bar
-          // window.Canvas.drawBase(...) // Or rely on next game loop draw
         } else {
           window.UI.showFeedback("Not enough diamonds!");
         }
@@ -80,8 +81,8 @@
       apply: function() {
         const MAX_DEFENSE_UPGRADES = 5;
         if (window.GameState.baseDefenseUpgrades >= MAX_DEFENSE_UPGRADES) {
-             window.UI.showFeedback("Base defense maxed out!");
-             return;
+          window.UI.showFeedback("Base defense maxed out!");
+          return;
         }
 
         if (window.GameState.diamonds >= this.getPrice()) {
@@ -122,18 +123,17 @@
             window.UI.showFeedback("Storage error saving upgrade.");
           }
 
-          // Apply health increase to existing units proportionally
           window.Units.units.forEach(unit => {
-              const oldMaxHp = unit.maxHp;
-              const healthPercentage = unit.hp / oldMaxHp;
-              unit.maxHp += 3; // Increase max HP
-              unit.hp = Math.round(unit.maxHp * healthPercentage); // Heal proportionally
+            const oldMaxHp = unit.maxHp;
+            const healthPercentage = unit.hp / oldMaxHp;
+            unit.maxHp += 3;
+            unit.hp = Math.round(unit.maxHp * healthPercentage);
           });
 
           window.UI.updateFooter();
           Shop.updateShop();
-          window.UI.addTooltips(); // Update tooltips to show new health
-          window.UI.updateUnitInfoPanel(); // Update info panel
+          window.UI.addTooltips();
+          window.UI.updateUnitInfoPanel();
           window.UI.showFeedback("Unit health increased!");
           window.UI.updateUpgradesDisplay();
         } else {
@@ -148,24 +148,26 @@
       apply: function() {
         if (window.GameState.diamonds >= this.getPrice()) {
           window.GameState.diamonds -= this.getPrice();
-          window.GameState.unitDamageUpgrades++; // Track the level
-
-          // Update base damage values in the Units module
-          // This approach modifies the base types directly.
-          // Consider if damage should be calculated on spawn instead: unit.damage = baseDamage + upgradeBonus
+          window.GameState.unitDamageUpgrades++;
+          
+          // Update base types
           window.Units.UNIT_TYPES.BARBARIAN.damage += 2;
           window.Units.UNIT_TYPES.ARCHER.damage += 2;
           window.Units.UNIT_TYPES.HORSE.damage += 2;
-          window.Units.UNIT_TYPES.KNIGHT.damage += 2; // Also upgrade Knight
+          window.Units.UNIT_TYPES.KNIGHT.damage += 2;
+          
+          // Update existing units
+          window.Units.units.forEach(unit => {
+            unit.damage = Math.floor(unit.damage + 2);
+          });
 
           try {
             localStorage.setItem('warriorDiamonds', window.GameState.diamonds);
-            // Save the individual damage values AND the upgrade level
             localStorage.setItem('warriorUnitDamage', JSON.stringify({
               barb: window.Units.UNIT_TYPES.BARBARIAN.damage,
               arch: window.Units.UNIT_TYPES.ARCHER.damage,
               horse: window.Units.UNIT_TYPES.HORSE.damage,
-              knight: window.Units.UNIT_TYPES.KNIGHT.damage // Save Knight damage
+              knight: window.Units.UNIT_TYPES.KNIGHT.damage
             }));
             localStorage.setItem('warriorUnitDamageUpgrades', window.GameState.unitDamageUpgrades);
           } catch (e) {
@@ -175,8 +177,8 @@
 
           window.UI.updateFooter();
           Shop.updateShop();
-          window.UI.addTooltips(); // Update tooltips
-          window.UI.updateUnitInfoPanel(); // Update info panel
+          window.UI.addTooltips();
+          window.UI.updateUnitInfoPanel();
           window.UI.showFeedback("Unit damage increased!");
           window.UI.updateUpgradesDisplay();
         } else {
@@ -184,68 +186,52 @@
         }
       }
     },
-    // --- Revised Knight Unlock ---
     NEW_UNIT: {
       name: "Unlock Knight",
       description: "Unlock the powerful Knight unit",
-      getPrice: () => 25, // Fixed price for unlock
+      getPrice: () => 25,
       apply: function() {
-        // Check GameState flag now
         if (window.GameState.diamonds >= this.getPrice() && !window.GameState.isKnightUnlocked) {
           window.GameState.diamonds -= this.getPrice();
-
-          // Call the centralized unlock function in GameState
           window.GameState.unlockKnight();
-
-          // GameState.unlockKnight handles saving and UI updates now
-          // No need to save 'warriorKnightUnlocked' here directly
-          // No need to call UI.addKnightButton()
-
-          window.UI.updateFooter(); // Update diamond display
-          // Shop.updateShop(); // Called by unlockKnight
+          window.UI.updateFooter();
           window.UI.showFeedback("Knight unlocked!");
-          // window.UI.updateUpgradesDisplay(); // Called by unlockKnight
         } else if (window.GameState.isKnightUnlocked) {
-           window.UI.showFeedback("Knight already unlocked!");
+          window.UI.showFeedback("Knight already unlocked!");
         } else {
           window.UI.showFeedback("Not enough diamonds!");
         }
       }
     }
-    // --- End Revised Knight Unlock ---
   };
 
   // Function to Update Shop UI
   Shop.updateShop = function () {
     const shopElement = document.getElementById("shop");
     if (!shopElement) {
-        console.error("Shop element not found in HTML!");
-        return;
+      console.error("Shop element not found in HTML!");
+      return;
     }
-    shopElement.innerHTML = "<h3>Upgrades</h3>"; // Clear previous items
+    shopElement.innerHTML = "<h3>Upgrades</h3>";
 
     for (let key in Shop.SHOP_ITEMS) {
       const item = Shop.SHOP_ITEMS[key];
 
-      // --- Use GameState flag to check if Knight unlock should be shown ---
       if (key === "NEW_UNIT" && window.GameState.isKnightUnlocked) {
-        continue; // Skip showing the unlock item if already unlocked
+        continue;
       }
-      // --- End Knight Check ---
 
-      // Skip showing maxed out defense upgrade
-      const MAX_DEFENSE_UPGRADES = 5; // Define here or get from GameState if needed
+      const MAX_DEFENSE_UPGRADES = 5;
       if (key === "BASE_DEFENSE" && window.GameState.baseDefenseUpgrades >= MAX_DEFENSE_UPGRADES) {
         const container = document.createElement("div");
         container.className = "shop-item";
         container.innerHTML = `
-            <button class="shop-button" disabled>${item.name} - MAX</button>
-            <p>${item.description}</p>
+          <button class="shop-button" disabled>${item.name} - MAX</button>
+          <p>${item.description}</p>
         `;
         shopElement.appendChild(container);
-        continue; // Skip the rest for this item
+        continue;
       }
-
 
       const container = document.createElement("div");
       container.className = "shop-item";
@@ -259,7 +245,7 @@
 
       const button = container.querySelector("button");
       button.onclick = () => {
-        item.apply(); // 'this' inside apply will refer to the item object
+        item.apply();
       };
       shopElement.appendChild(container);
     }
