@@ -10,10 +10,38 @@
   };
 
   Units.UNIT_TYPES = {
-    BARBARIAN: { ...Units.BASE_ENEMY_STATS.BARBARIAN, name: "Barbarian", color: "#3b5998", cost: 5 },
-    ARCHER: { ...Units.BASE_ENEMY_STATS.ARCHER, name: "Archer", color: "#28a745", cost: 8 },
-    HORSE: { ...Units.BASE_ENEMY_STATS.HORSE, name: "Horse", color: "#dc3545", cost: 12 },
-    KNIGHT: { ...Units.BASE_ENEMY_STATS.KNIGHT, name: "Knight", color: "#ffd700", cost: 15 }
+    BARBARIAN: { 
+      ...Units.BASE_ENEMY_STATS.BARBARIAN, 
+      name: "Barbarian", 
+      color: "#3b5998", 
+      cost: 5,
+      lore: "Fierce highland warriors with unbreakable spirit.",
+      strengths: "Balanced fighter with solid health and damage."
+    },
+    ARCHER: { 
+      ...Units.BASE_ENEMY_STATS.ARCHER, 
+      name: "Archer", 
+      color: "#28a745", 
+      cost: 8,
+      lore: "Forest sharpshooters with deadly precision.",
+      strengths: "High ranged damage."
+    },
+    HORSE: { 
+      ...Units.BASE_ENEMY_STATS.HORSE, 
+      name: "Horse", 
+      color: "#dc3545", 
+      cost: 12,
+      lore: "Swift warhorses bred for rapid strikes.",
+      strengths: "Fast movement and strong attacks."
+    },
+    KNIGHT: { 
+      ...Units.BASE_ENEMY_STATS.KNIGHT, 
+      name: "Knight", 
+      color: "#ffd700", 
+      cost: 15,
+      lore: "Honored protectors in sacred armor.",
+      strengths: "High health and damage for late waves."
+    }
   };
 
   // Game Entities

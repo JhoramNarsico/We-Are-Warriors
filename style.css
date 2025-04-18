@@ -2,11 +2,11 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-  font-family: 'Cinzel', 'Roboto', Arial, sans-serif; /* Added Cinzel for a medieval feel */
+  font-family: 'Cinzel', 'Roboto', Arial, sans-serif;
 }
 
 body {
-  background: linear-gradient(180deg, #1a1a1a, #2c2c2c); /* Subtle gradient background */
+  background: linear-gradient(180deg, #1a1a1a, #2c2c2c);
   color: #e0e0e0;
   min-height: 100vh;
   display: flex;
@@ -28,8 +28,8 @@ body {
   width: 100%;
   height: 90vh;
   margin: auto;
-  background: rgba(20, 20, 20, 0.9); /* Semi-transparent dark background */
-  border: 2px solid #4a3c31; /* Bronze-like border */
+  background: rgba(20, 20, 20, 0.9);
+  border: 2px solid #4a3c31;
   border-radius: 8px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
 }
@@ -40,7 +40,7 @@ body {
   justify-content: space-between;
   align-items: center;
   padding: 12px;
-  background: linear-gradient(to bottom, #3c2f2f, #2c2222); /* Dark red-brown gradient */
+  background: linear-gradient(to bottom, #3c2f2f, #2c2222);
   border-radius: 5px;
   border: 1px solid #5c4b3b;
   box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
@@ -57,7 +57,7 @@ body {
   display: flex;
   align-items: center;
   gap: 6px;
-  color: #d4b483; /* Gold-like text color */
+  color: #d4b483;
   text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
 }
 
@@ -87,7 +87,7 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
-  background: #1c2526; /* Darker canvas background */
+  background: #1c2526;
   border-radius: 5px;
   border: 2px solid #4a3c31;
   overflow: hidden;
@@ -141,7 +141,7 @@ body {
   padding: 10px;
   font-size: 1rem;
   font-weight: 600;
-  background: linear-gradient(to bottom, #4a3c31, #3a2c21); /* Bronze-like gradient */
+  background: linear-gradient(to bottom, #4a3c31, #3a2c21);
   color: #e0e0e0;
   border: 1px solid #6b5844;
   border-radius: 6px;
@@ -184,43 +184,101 @@ body {
   position: absolute;
   background: #1c2526;
   color: #e0e0e0;
-  padding: 10px;
+  padding: 12px;
   border-radius: 6px;
-  font-size: 0.85rem;
-  z-index: 100; /* Increased z-index to ensure it appears on top */
-  bottom: 120%; /* Changed from top: 100% to bottom: 120% to appear above the button */
-  left: 50%;
-  transform: translateX(-50%);
-  width: 160px;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  z-index: 100;
+  right: 110%; /* Position to the left of the button */
+  top: 50%; /* Vertically center relative to button */
+  transform: translateY(-50%); /* Center vertically */
+  width: 280px;
+  max-width: 80vw; /* Adjusted to prevent overflow on small screens */
   text-align: left;
   border: 1px solid #d4b483;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
-  pointer-events: none; /* Ensures tooltip doesn't interfere with clicks */
+  pointer-events: none;
   opacity: 0;
   transition: visibility 0.2s, opacity 0.2s;
 }
 
-.unit-button:hover .tooltip {
+.unit-button:hover .tooltip,
+.unit-button:focus .tooltip {
   visibility: visible;
   opacity: 1;
+}
+
+.tooltip-header {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #d4b483;
+  margin-bottom: 8px;
+  border-bottom: 1px solid #5c4b3b;
+  padding-bottom: 4px;
+}
+
+.tooltip-body {
+  display: flex;
+  flex-direction: row;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.tooltip-lore, .tooltip-strengths {
+  flex: 1;
+  min-width: 0;
+}
+
+.tooltip-lore {
+  font-style: italic;
+  color: #b0b0b0;
+  border-right: 1px solid #5c4b3b;
+  padding-right: 8px;
+}
+
+.tooltip-strengths {
+  color: #e0e0e0;
+}
+
+.unlock-instruction {
+  margin-top: 8px;
+  font-size: 0.85rem;
+  color: #ff4d4d;
+  font-weight: 600;
+  width: 100%;
 }
 
 .tooltip::after {
   content: "";
   position: absolute;
-  top: 100%;
-  left: 50%;
-  margin-left: -5px;
+  right: 100%; /* Place arrow to the left of tooltip */
+  top: 50%; /* Center vertically */
+  margin-top: -5px; /* Adjust for arrow size */
   border-width: 5px;
   border-style: solid;
-  border-color: #1c2526 transparent transparent transparent;
+  border-color: transparent transparent transparent #1c2526; /* Right-pointing arrow */
 }
 
 @media (max-width: 800px) {
   .tooltip {
-    width: 140px;
-    font-size: 0.75rem;
-    bottom: 110%;
+    width: 240px;
+    font-size: 0.85rem;
+    right: 105%; /* Slightly closer on smaller screens */
+  }
+}
+
+@media (max-width: 500px) {
+  .tooltip-body {
+    flex-direction: column;
+    gap: 6px;
+  }
+  .tooltip-lore {
+    border-right: none;
+    padding-right: 0;
+  }
+  .tooltip {
+    width: 200px;
+    right: 100%; /* Adjust to prevent overlap */
   }
 }
 
@@ -337,7 +395,7 @@ body {
 
 .diamond-icon {
   font-size: 1rem;
-  color: #4dd0e1; /* Cyan for diamonds */
+  color: #4dd0e1;
 }
 
 @media (max-width: 800px) {
@@ -366,17 +424,14 @@ body {
       padding: 8px;
   }
 
-  .tooltip {
-      font-size: 0.75rem;
-      width: 140px;
-  }
-
   #unitInfoPanel {
       font-size: 0.9rem;
   }
 
-  .status-display span {
-      font-size: 1rem;
+  .status-display {
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
   }
 }
 

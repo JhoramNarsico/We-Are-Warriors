@@ -63,13 +63,33 @@
 
   UI.drawWaveCooldown = function (seconds) {
     if (!this.waveCooldownElement) return;
-    this.waveCooldownElement.textContent = `Next Wave in ${seconds}s`;
+    
+    this.waveCooldownElement.textContent = `Next Wave in ${seconds} seconds`;
     this.waveCooldownElement.style.display = "block";
-    this.waveCooldownElement.style.color = seconds <= 1 ? "#dc3545" : seconds <= 2 ? "#ffd700" : "#28a745";
+    
+    if (seconds <= 1) {
+      this.waveCooldownElement.style.color = "#ff3333";
+      this.waveCooldownElement.style.fontWeight = "bold";
+    } else if (seconds <= 2) {
+      this.waveCooldownElement.style.color = "#ffcc00";
+      this.waveCooldownElement.style.fontWeight = "bold";
+    } else {
+      this.waveCooldownElement.style.color = "#33cc33";
+      this.waveCooldownElement.style.fontWeight = "normal";
+    }
+    
+    if (seconds <= 3) {
+      this.waveCooldownElement.classList.add("pulse-animation");
+    } else {
+      this.waveCooldownElement.classList.remove("pulse-animation");
+    }
   };
 
   UI.hideWaveCooldown = function () {
-    if (this.waveCooldownElement) this.waveCooldownElement.style.display = "none";
+    if (this.waveCooldownElement) {
+      this.waveCooldownElement.style.display = "none";
+      this.waveCooldownElement.classList.remove("pulse-animation");
+    }
   };
 
   UI.updateFooter = function () {
@@ -86,26 +106,86 @@
 
   UI.updateUpgradesDisplay = function () {
     if (!this.upgradesList) return;
-    let upgradesText = "";
-    if (window.GameState.baseHealthUpgrades > 0) upgradesText += `<li>Base Health: +${window.GameState.baseHealthUpgrades * 25} HP (${window.GameState.baseHealthUpgrades})</li>`;
-    if (window.GameState.unitHealthUpgrades > 0) upgradesText += `<li>Unit Health: +${window.GameState.unitHealthUpgrades * 3} HP (${window.GameState.unitHealthUpgrades})</li>`;
-    if (window.GameState.unitDamageUpgrades > 0) upgradesText += `<li>Unit Damage: +${window.GameState.unitDamageUpgrades * 2} DMG (${window.GameState.unitDamageUpgrades})</li>`;
-    if (window.GameState.goldProductionUpgrades > 0) upgradesText += `<li>Gold Rate: ${window.GameState.goldProductionRate}ms (${window.GameState.goldProductionUpgrades})</li>`;
-    if (window.GameState.baseDefenseUpgrades > 0) upgradesText += `<li>Base Defense: ${window.GameState.baseDefenseUpgrades * 10}% (${window.GameState.baseDefenseUpgrades})</li>`;
-    if (window.GameState.isKnightUnlocked) upgradesText += `<li>Knight: Unlocked</li>`;
-    this.upgradesList.innerHTML = upgradesText ? `<ul>${upgradesText}</ul>` : "<p>No upgrades purchased yet.</p>";
+    
+    let upgradesContent = "";
+    
+    if (window.GameState.baseHealthUpgrades > 0) {
+      upgradesContent += `<li class="upgrade-item">
+        <span class="upgrade-icon">🛡️</span>
+        <span class="upgrade-name">Base Health:</span> 
+        <span class="upgrade-value">+${window.GameState.baseHealthUpgrades * 25} HP</span>
+        <span class="upgrade-level">(Level ${window.GameState.baseHealthUpgrades})</span>
+      </li>`;
+    }
+    
+    if (window.GameState.unitHealthUpgrades > 0) {
+      upgradesContent += `<li class="upgrade-item">
+        <span class="upgrade-icon">❤️</span>
+        <span class="upgrade-name">Unit Health:</span>
+        <span class="upgrade-value">+${window.GameState.unitHealthUpgrades * 3} HP</span>
+        <span class="upgrade-level">(Level ${window.GameState.unitHealthUpgrades})</span>
+      </li>`;
+    }
+    
+    if (window.GameState.unitDamageUpgrades > 0) {
+      upgradesContent += `<li class="upgrade-item">
+        <span class="upgrade-icon">⚔️</span>
+        <span class="upgrade-name">Unit Damage:</span>
+        <span class="upgrade-value">+${window.GameState.unitDamageUpgrades * 2} DMG</span>
+        <span class="upgrade-level">(Level ${window.GameState.unitDamageUpgrades})</span>
+      </li>`;
+    }
+    
+    if (window.GameState.goldProductionUpgrades > 0) {
+      upgradesContent += `<li class="upgrade-item">
+        <span class="upgrade-icon">💰</span>
+        <span class="upgrade-name">Gold Rate:</span>
+        <span class="upgrade-value">${window.GameState.goldProductionRate}ms</span>
+        <span class="upgrade-level">(Level ${window.GameState.goldProductionUpgrades})</span>
+      </li>`;
+    }
+    
+    if (window.GameState.baseDefenseUpgrades > 0) {
+      upgradesContent += `<li class="upgrade-item">
+        <span class="upgrade-icon">🛡️</span>
+        <span class="upgrade-name">Base Defense:</span>
+        <span class="upgrade-value">${window.GameState.baseDefenseUpgrades * 10}%</span>
+        <span class="upgrade-level">(Level ${window.GameState.baseDefenseUpgrades})</span>
+      </li>`;
+    }
+    
+    if (window.GameState.isKnightUnlocked) {
+      upgradesContent += `<li class="upgrade-item special-unlock">
+        <span class="upgrade-icon">⚜️</span>
+        <span class="upgrade-name">Knight:</span>
+        <span class="upgrade-value">Unlocked</span>
+      </li>`;
+    }
+    
+    this.upgradesList.innerHTML = upgradesContent ? 
+      `<ul class="upgrades-list">${upgradesContent}</ul>` : 
+      '<p class="no-upgrades">No upgrades purchased yet.</p>';
   };
 
   UI.showFeedback = function (message) {
     if (!this.feedbackMessage) return;
+    
+    this.feedbackMessage.classList.remove("show", "fade-out", "slide-in");
+    
     this.feedbackMessage.textContent = message;
-    this.feedbackMessage.classList.remove("show");
+    
     void this.feedbackMessage.offsetWidth;
-    this.feedbackMessage.classList.add("show");
+    
+    this.feedbackMessage.classList.add("show", "slide-in");
+    
     if (this.feedbackTimeout) clearTimeout(this.feedbackTimeout);
+    
     this.feedbackTimeout = setTimeout(() => {
-      this.feedbackMessage.classList.remove("show");
-    }, 3000);
+      this.feedbackMessage.classList.add("fade-out");
+      this.feedbackTimeout = setTimeout(() => {
+        this.feedbackMessage.classList.remove("show", "slide-in", "fade-out");
+      }, 500);
+    }, 2500);
   };
 
   UI.showDamageNumber = function (x, y, amount, isPlayerTakingDamage) {
@@ -121,23 +201,40 @@
     const damageText = document.createElement("div");
     damageText.textContent = `-${Math.floor(amount)}`;
     damageText.className = "damage-text";
+    
+    if (isPlayerTakingDamage) {
+      damageText.classList.add("player-damage");
+    } else {
+      damageText.classList.add("enemy-damage");
+    }
+    
     const canvasRect = window.Canvas.canvas.getBoundingClientRect();
     damageText.style.left = `${x + canvasRect.left}px`;
     damageText.style.top = `${y + canvasRect.top - 20}px`;
-    damageText.style.color = isPlayerTakingDamage ? "#ff4d4d" : "#ffd700";
+    
+    damageText.style.color = isPlayerTakingDamage ? "#ff4d4d" : "#ffdd00";
+    damageText.style.fontSize = isPlayerTakingDamage ? "18px" : "16px";
+    damageText.style.fontWeight = "bold";
+    damageText.style.textShadow = isPlayerTakingDamage ? 
+      "0 0 3px rgba(0,0,0,0.8), 0 0 1px #000" : 
+      "0 0 3px rgba(0,0,0,0.8), 0 0 1px #000";
 
     document.body.appendChild(damageText);
 
     requestAnimationFrame(() => {
-      damageText.style.transform = "translateY(-40px)";
-      damageText.style.opacity = "0";
+      damageText.style.transition = "transform 0.8s ease-out, opacity 0.7s ease-in";
+      damageText.style.transform = "translateY(-40px) scale(1.2)";
+      
+      setTimeout(() => {
+        damageText.style.opacity = "0";
+      }, 300);
     });
 
     setTimeout(() => {
       if (document.body.contains(damageText)) {
         document.body.removeChild(damageText);
       }
-    }, 800);
+    }, 1000);
   };
 
   UI.showGameOverModal = function (message) {
@@ -145,7 +242,7 @@
     window.GameState.gameOver = true;
     window.GameState.gameActive = false;
     window.GameState.gamePaused = true;
-    window.Game.gameLoopRunning = false; // Reset loop flag
+    window.Game.gameLoopRunning = false;
 
     if (window.GameState.waveCooldownInterval) {
       clearInterval(window.GameState.waveCooldownInterval);
@@ -157,13 +254,20 @@
       window.GameState.goldInterval = null;
     }
 
+    const isVictory = message === "Victory!";
+    
     this.gameOverMessage.textContent = message;
+    this.gameOverMessage.className = isVictory ? "victory-message" : "defeat-message";
+    
     this.gameOverWave.textContent = `Reached Wave: ${window.GameState.wave}`;
     this.gameOverModal.style.display = "flex";
+    
+    this.gameOverModal.classList.add("modal-animation");
+    
     this.updateButtonStates();
 
     if (window.GameState.soundEnabled) {
-      const soundToPlay = (message === "Victory!") ? this.winSound : this.loseSound;
+      const soundToPlay = isVictory ? this.winSound : this.loseSound;
       if (soundToPlay) {
         soundToPlay.currentTime = 0;
         soundToPlay.play().catch(e => console.error("Game Over sound error:", e));
@@ -172,7 +276,15 @@
   };
 
   UI.showTutorial = function () {
-    if (this.tutorialModal) this.tutorialModal.style.display = "flex";
+    if (!this.tutorialModal) return;
+    
+    this.tutorialModal.style.display = "flex";
+    this.tutorialModal.classList.add("tutorial-animation");
+    
+    setTimeout(() => {
+      const closeButton = this.tutorialModal.querySelector(".close-button");
+      if (closeButton) closeButton.focus();
+    }, 100);
   };
 
   UI.updateUnitSelectionUI = function () {
@@ -194,7 +306,10 @@
       if (unitType && window.Units.UNIT_TYPES[unitType]) {
         const tooltipSpan = button.querySelector(".tooltip");
         if (tooltipSpan) {
-          tooltipSpan.innerHTML = this.generateTooltip(window.Units.UNIT_TYPES[unitType].name);
+          tooltipSpan.innerHTML = this.generateTooltip(unitType);
+          
+          button.setAttribute("aria-describedby", `tooltip-${unitType.toLowerCase()}`);
+          tooltipSpan.id = `tooltip-${unitType.toLowerCase()}`;
         }
       }
     });
@@ -205,26 +320,14 @@
     const unit = window.Units.UNIT_TYPES[unitName.toUpperCase()];
     if (!unit) return "Unit data not found";
 
-    const health = unit.health + (window.GameState.unitHealthUpgrades * 3);
-    const damage = unit.damage;
-    const speed = unit.speed.toFixed(1);
-    const cost = unit.cost;
-    let description = "";
-
-    switch (unitName.toUpperCase()) {
-      case "BARBARIAN": description = "Balanced fighter."; break;
-      case "ARCHER": description = "High damage, fragile."; break;
-      case "HORSE": description = "Fast and strong."; break;
-      case "KNIGHT": description = "Tanky, high damage."; break;
-    }
-
+    const isKnightLocked = unitName.toUpperCase() === "KNIGHT" && !window.GameState.isKnightUnlocked;
     return `
-      <strong>${unitName}</strong><br>
-      ${description}<br>
-      <span class="tooltip-stat">❤️ Health: ${health}</span><br>
-      <span class="tooltip-stat">⚔️ Damage: ${damage}</span><br>
-      <span class="tooltip-stat">🏃 Speed: ${speed}</span><br>
-      <span class="tooltip-stat">💰 Cost: ${cost} gold</span>
+      <div class="tooltip-header">${unit.name}</div>
+      <div class="tooltip-body">
+        <div class="tooltip-lore">${unit.lore}</div>
+        <div class="tooltip-strengths"><strong>Strengths:</strong> ${unit.strengths}</div>
+      </div>
+      ${isKnightLocked ? '<div class="unlock-instruction">Purchase from Shop to unlock</div>' : ''}
     `;
   };
 
@@ -233,30 +336,70 @@
       if (this.unitInfoPanel) this.unitInfoPanel.innerHTML = "";
       return;
     }
+    
     const unit = window.Units.selectedUnitType;
     const health = unit.health + (window.GameState.unitHealthUpgrades * 3);
     const damage = unit.damage;
     const speed = unit.speed.toFixed(1);
     const cost = unit.cost;
     let description = "";
+    let special = "";
 
     switch (unit.name.toUpperCase()) {
-      case "BARBARIAN": description = "Balanced fighter, good for early waves."; break;
-      case "ARCHER": description = "High damage, fragile. Great for ranged support."; break;
-      case "HORSE": description = "Fast and strong, ideal for quick strikes."; break;
-      case "KNIGHT": description = "Tanky with high damage, excels in late waves."; break;
+      case "BARBARIAN": 
+        description = "Balanced fighter with good survivability."; 
+        special = "No special abilities, but reliable in most situations.";
+        break;
+      case "ARCHER": 
+        description = "High damage from a distance."; 
+        special = "Can attack enemies before they get close.";
+        break;
+      case "HORSE": 
+        description = "Fast movement with strong charge attacks."; 
+        special = "Reaches enemies quickly to disrupt their formations.";
+        break;
+      case "KNIGHT": 
+        description = "Heavy armor with powerful strikes."; 
+        special = "Can withstand significant damage while dealing heavy blows.";
+        break;
     }
 
     const isLockedKnight = (unit.name === "Knight" && !window.GameState.isKnightUnlocked);
 
     this.unitInfoPanel.innerHTML = `
-      <h4>${unit.name} ${isLockedKnight ? '(Locked)' : ''}</h4>
-      <p>${description}</p>
-      <p><span class="stat-icon">❤️</span>Health: ${health}</p>
-      <p><span class="stat-icon">⚔️</span>Damage: ${damage}</p>
-      <p><span class="stat-icon">🏃</span>Speed: ${speed}</p>
-      <p><span class="stat-icon">💰</span>Cost: ${cost} gold</p>
-      ${isLockedKnight ? '<p style="color: #ffcc00;">Unlock in the Shop!</p>' : ''}
+      <div class="unit-info-header ${isLockedKnight ? 'locked' : ''}">
+        <h4>${unit.name} ${isLockedKnight ? '<span class="lock-icon">🔒</span>' : ''}</h4>
+      </div>
+      
+      <div class="unit-info-description">
+        <p>${description}</p>
+        <p class="unit-special-ability">${special}</p>
+      </div>
+      
+      <div class="unit-info-stats">
+        <div class="stat-row">
+          <span class="stat-icon">❤️</span>
+          <span class="stat-label">Health:</span>
+          <span class="stat-value">${health}</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-icon">⚔️</span>
+          <span class="stat-label">Damage:</span>
+          <span class="stat-value">${damage}</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-icon">🏃</span>
+          <span class="stat-label">Speed:</span>
+          <span class="stat-value">${speed}</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-icon">💰</span>
+          <span class="stat-label">Cost:</span>
+          <span class="stat-value">${cost} gold</span>
+        </div>
+      </div>
+      
+      ${isLockedKnight ? '<div class="unit-locked-message">Unlock in the Shop!</div>' : ''}
     `;
   };
 
@@ -291,10 +434,27 @@
 
     this.knightButton.disabled = !isUnlocked;
     this.knightButton.classList.toggle('locked', !isUnlocked);
+    
+    if (!isUnlocked) {
+      this.knightButton.classList.add('locked-unit');
+      if (!this.knightButton.querySelector('.lock-overlay')) {
+        const lockOverlay = document.createElement('div');
+        lockOverlay.className = 'lock-overlay';
+        lockOverlay.innerHTML = '🔒';
+        this.knightButton.appendChild(lockOverlay);
+      }
+    } else {
+      this.knightButton.classList.remove('locked-unit');
+      const lockOverlay = this.knightButton.querySelector('.lock-overlay');
+      if (lockOverlay) {
+        this.knightButton.removeChild(lockOverlay);
+      }
+    }
+    
     this.knightButton.setAttribute('aria-label', `Select Knight unit${isUnlocked ? '' : ' (Locked)'}`);
 
     if (this.knightButtonTooltip) {
-      this.knightButtonTooltip.innerHTML = this.generateTooltip("Knight") + (isUnlocked ? '' : '<br><span style="color: #ffcc00;">(Unlock in Shop)</span>');
+      this.knightButtonTooltip.innerHTML = this.generateTooltip("Knight");
     }
 
     if (window.Units.selectedUnitType && window.Units.selectedUnitType.name === "Knight") {
