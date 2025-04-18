@@ -1,7 +1,6 @@
 (function () {
   const Units = {};
 
-  // Unit Definitions
   Units.BASE_ENEMY_STATS = {
     BARBARIAN: { health: 15, damage: 3, speed: 1.1, reward: 2 },
     ARCHER: { health: 8, damage: 6, speed: 1.3, reward: 3 },
@@ -44,12 +43,10 @@
     }
   };
 
-  // Game Entities
   Units.units = [];
   Units.enemyUnits = [];
   Units.selectedUnitType = Units.UNIT_TYPES.BARBARIAN;
 
-  // Spatial Partitioning Grid
   const GRID_CELL_SIZE = 50;
   const grid = new Map();
 
@@ -94,7 +91,6 @@
     return nearbyUnits;
   };
 
-  // Load saved unit damage upgrades
   try {
     const savedDamage = localStorage.getItem('warriorUnitDamage');
     if (savedDamage) {
@@ -154,7 +150,8 @@
         opacity: 1,
         lane: lane,
         lastAttack: null,
-        lastGridKey: null
+        lastGridKey: null,
+        spawnTime: Date.now()
       });
     }
     for (let i = 0; i < archerCount; i++) {
@@ -171,7 +168,8 @@
         opacity: 1,
         lane: lane,
         lastAttack: null,
-        lastGridKey: null
+        lastGridKey: null,
+        spawnTime: Date.now()
       });
     }
     for (let i = 0; i < horseCount; i++) {
@@ -188,7 +186,8 @@
         opacity: 1,
         lane: lane,
         lastAttack: null,
-        lastGridKey: null
+        lastGridKey: null,
+        spawnTime: Date.now()
       });
     }
     for (let i = 0; i < knightCount; i++) {
@@ -205,7 +204,8 @@
         opacity: 1,
         lane: lane,
         lastAttack: null,
-        lastGridKey: null
+        lastGridKey: null,
+        spawnTime: Date.now()
       });
     }
 
@@ -243,7 +243,8 @@
           opacity: 1,
           lane: lane,
           lastAttack: null,
-          lastGridKey: null
+          lastGridKey: null,
+          spawnTime: Date.now()
         };
         if (newUnit.x < 0 || newUnit.x > window.Canvas.canvas.width || newUnit.y < 0 || newUnit.y > window.Canvas.canvas.height) {
           console.error("Unit spawned outside canvas:", newUnit.x, newUnit.y);
@@ -271,7 +272,6 @@
 
     let needsGridUpdate = false;
 
-    // Check if grid update is needed
     this.units.forEach(unit => {
       const currentKey = this.getGridKey(unit.x, unit.y);
       if (unit.lastGridKey !== currentKey) needsGridUpdate = true;
@@ -281,7 +281,6 @@
       if (unit.lastGridKey !== currentKey) needsGridUpdate = true;
     });
 
-    // Clear removed units and mark for grid update
     for (let i = this.units.length - 1; i >= 0; i--) {
       const unit = this.units[i];
       if (unit.hp <= 0) {
@@ -306,7 +305,6 @@
       }
     }
 
-    // Update grid once if needed
     if (needsGridUpdate) this.updateGrid();
 
     window.Canvas.ctx.clearRect(0, 0, window.Canvas.canvas.width, window.Canvas.canvas.height);
@@ -315,7 +313,6 @@
     window.Canvas.drawBase(60, "#3b5998", window.GameState.baseHealth, playerMaxHealth, window.GameState.baseDefenseUpgrades);
     window.Canvas.drawBase(750, "#dc3545", window.GameState.enemyBaseHealth, 150, 0);
 
-    // Update Allied Units
     for (let i = this.units.length - 1; i >= 0; i--) {
       const unit = this.units[i];
       let closestEnemy = null;
@@ -385,7 +382,6 @@
       window.Canvas.drawUnit(unit);
     }
 
-    // Update Enemy Units
     for (let i = this.enemyUnits.length - 1; i >= 0; i--) {
       const unit = this.enemyUnits[i];
       let closestAlly = null;
@@ -448,7 +444,6 @@
       window.Canvas.drawUnit(unit);
     }
 
-    // Wave Logic
     if (this.enemyUnits.length === 0 && window.GameState.waveStarted && !window.GameState.gameOver) {
       console.log(`Wave ${window.GameState.wave} cleared!`);
       window.GameState.wave++;
@@ -495,6 +490,5 @@
     }
   };
 
-  // Expose Units
   window.Units = Units;
 })();

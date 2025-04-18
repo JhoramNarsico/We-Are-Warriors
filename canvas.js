@@ -6,30 +6,21 @@
   Canvas.ctx = Canvas.canvas.getContext("2d");
 
   Canvas.resizeCanvas = function () {
-    const maxWidth = window.innerWidth * 0.9;
-    const maxHeight = window.innerHeight * 0.5; // Keep height constrained
-    const aspectRatio = 800 / 300; // Original reference aspect ratio
+    const maxWidth = window.innerWidth * 0.9; // Increased from 0.85 for larger container
+    const maxHeight = window.innerHeight * 0.5; // Increased from 0.45
+    const aspectRatio = 800 / 300;
 
-    // Calculate width based on height first to maintain aspect ratio
     let newWidth = maxHeight * aspectRatio;
     let newHeight = maxHeight;
 
-    // If calculated width exceeds max width, recalculate height based on max width
     if (newWidth > maxWidth) {
-        newWidth = maxWidth;
-        newHeight = newWidth / aspectRatio;
+      newWidth = maxWidth;
+      newHeight = newWidth / aspectRatio;
     }
 
-    // Ensure minimum dimensions? Maybe not necessary if constrained by window size.
-    this.canvas.width = Math.max(320, Math.floor(newWidth)); // Minimum width 320px
-    this.canvas.height = Math.max(120, Math.floor(newHeight)); // Minimum height 120px
-
+    this.canvas.width = Math.max(280, Math.floor(newWidth)); // Increased min width from 240
+    this.canvas.height = Math.max(105, Math.floor(newHeight)); // Increased min height from 90
     console.log(`Canvas resized to width:${this.canvas.width}, height:${this.canvas.height}`);
-    // Redraw immediately after resize if needed (e.g., if game is paused)
-    // if (window.GameState && (window.GameState.gamePaused || !window.GameState.gameActive)) {
-    //    // Need a dedicated draw function that just draws current state without update logic
-    //    // For now, rely on the next update loop frame if active
-    // }
   };
 
   Canvas.debounce = function (func, wait) {
@@ -37,159 +28,172 @@
     return function executedFunction(...args) {
       const later = () => {
         clearTimeout(timeout);
-        func.apply(this, args); // Use apply to maintain context
+        func.apply(this, args);
       };
       clearTimeout(timeout);
       timeout = setTimeout(later, wait);
     };
   };
 
-  // Bind 'this' correctly for the debounced function
   window.addEventListener("resize", Canvas.debounce(Canvas.resizeCanvas.bind(Canvas), 100));
-  // Call initial resize
   Canvas.resizeCanvas();
 
   // Drawing Functions
-  // Added maxHealth and defense parameters
   Canvas.drawBase = function (refX, color, currentHealth, maxHealth, defenseLevel = 0) {
-    // Use reference width/height for scaling calculations
     const refWidth = 800;
     const refHeight = 300;
-
     const scaleX = this.canvas.width / refWidth;
     const scaleY = this.canvas.height / refHeight;
 
-    const x = refX * scaleX; // Scale the reference X position
+    const x = refX * scaleX;
     const baseWidth = 70 * scaleX;
     const baseHeight = 130 * scaleY;
     const healthBarHeight = 10 * scaleY;
-    const healthBarYOffset = 0.13 * this.canvas.height; // Position relative to canvas top
+    const healthBarYOffset = 0.13 * this.canvas.height;
     const mainRectYOffset = 0.175 * this.canvas.height;
-    const turretYOffset = 0.15 * this.canvas.height;
 
-    // Base structure
-    this.ctx.fillStyle = "#555"; // Dark grey main structure
+    // Ground texture
+    this.ctx.fillStyle = "rgba(50, 50, 50, 0.5)";
+    this.ctx.fillRect(x - baseWidth / 2 - 10 * scaleX, mainRectYOffset + baseHeight, baseWidth + 20 * scaleX, 10 * scaleY);
+
+    // Base structure (pixelated look)
+    this.ctx.fillStyle = refX === 60 ? "#4a4a4a" : "#5a2e2e";
     this.ctx.fillRect(x - baseWidth / 2, mainRectYOffset, baseWidth, baseHeight);
 
-    // Colored inner part
-    this.ctx.fillStyle = color;
+    // Pixelated inner part
+    const gradient = this.ctx.createLinearGradient(x - (30 * scaleX), mainRectYOffset, x + (30 * scaleX), mainRectYOffset + baseHeight * 0.8);
+    gradient.addColorStop(0, color);
+    gradient.addColorStop(1, refX === 60 ? "#2a4066" : "#8b1c1c");
+    this.ctx.fillStyle = gradient;
     this.ctx.fillRect(x - (30 * scaleX), mainRectYOffset, (60 * scaleX), baseHeight * 0.8);
 
-    // Turrets/Tops
-    this.ctx.fillStyle = "#333"; // Very dark grey turrets
-    this.ctx.fillRect(x - baseWidth / 2, turretYOffset, (15 * scaleX), (20 * scaleY));
-    this.ctx.fillRect(x + baseWidth / 2 - (15 * scaleX), turretYOffset, (15 * scaleX), (20 * scaleY));
+    // Pixelated battlements/spikes
+    this.ctx.fillStyle = "#333";
+    if (refX === 60) {
+      for (let i = -2; i <= 2; i++) {
+        this.ctx.fillRect(x - baseWidth / 2 + i * (15 * scaleX), mainRectYOffset - (10 * scaleY), (10 * scaleX), (10 * scaleY));
+      }
+    } else {
+      for (let i = -2; i <= 2; i++) {
+        this.ctx.beginPath();
+        this.ctx.moveTo(x - baseWidth / 2 + i * (15 * scaleX), mainRectYOffset);
+        this.ctx.lineTo(x - baseWidth / 2 + i * (15 * scaleX) + (5 * scaleX), mainRectYOffset - (10 * scaleY));
+        this.ctx.lineTo(x - baseWidth / 2 + i * (15 * scaleX) + (10 * scaleX), mainRectYOffset);
+        this.ctx.fill();
+      }
+    }
 
-    // Health Bar Background
+    // Health Bar
     this.ctx.fillStyle = "rgba(0,0,0,0.7)";
+    this.ctx.strokeStyle = "#fff";
+    this.ctx.lineWidth = 1 * scaleX;
     this.ctx.fillRect(x - baseWidth / 2, healthBarYOffset, baseWidth, healthBarHeight);
+    this.ctx.strokeRect(x - baseWidth / 2, healthBarYOffset, baseWidth, healthBarHeight);
 
-    // Health Bar Foreground
     const healthPercentage = Math.max(0, currentHealth / maxHealth);
-    this.ctx.fillStyle = healthPercentage > 0.5 ? "#28a745" : healthPercentage > 0.2 ? "#ffd700" : "#dc3545"; // Green/Yellow/Red
+    this.ctx.fillStyle = healthPercentage > 0.5 ? "#28a745" : healthPercentage > 0.2 ? "#ffd700" : "#dc3545";
     this.ctx.fillRect(x - baseWidth / 2, healthBarYOffset, baseWidth * healthPercentage, healthBarHeight);
 
-    // Text Info (HP and Defense)
-    this.ctx.fillStyle = "#fff"; // White text
-    this.ctx.font = `${Math.max(10, 14 * scaleX)}px Roboto`; // Scaled font size, min 10px
-    this.ctx.textAlign = "left"; // Align text to the left of the bar start
+    // Text Info
+    this.ctx.fillStyle = "#f5f5f5";
+    this.ctx.font = `${Math.max(12, 16 * scaleX)}px 'VT323', 'Press Start 2P', 'Courier New', monospace`;
+    this.ctx.textAlign = "left";
+    const hpText = `HP: ${Math.max(0, Math.floor(currentHealth))} / ${maxHealth}`;
+    this.ctx.fillText(hpText, x - baseWidth / 2, healthBarYOffset - (5 * scaleY));
 
-    // HP Text
-    const hpText = `HP: ${Math.max(0, Math.floor(currentHealth))} / ${maxHealth} (${Math.round(healthPercentage * 100)}%)`;
-    this.ctx.fillText(hpText, x - baseWidth / 2, healthBarYOffset - (5 * scaleY)); // Position above health bar
-
-    // Defense Text (only for player base, identified by refX or color maybe?)
-    // --- ADJUSTED refX CHECK ---
-    if (refX === 60) { // Assuming refX 60 is now the player base (was 20)
-        const defText = `DEF: ${defenseLevel * 10}%`;
-        this.ctx.fillText(defText, x - baseWidth / 2, healthBarYOffset - (20 * scaleY)); // Position further above HP
+    if (refX === 60 && defenseLevel > 0) {
+      const defText = `🛡️ DEF: ${defenseLevel * 10}%`;
+      this.ctx.fillText(defText, x - baseWidth / 2, healthBarYOffset - (20 * scaleY));
     }
   };
 
   Canvas.drawUnit = function (unit) {
-    // Use reference width/height for scaling calculations
     const refWidth = 800;
     const refHeight = 300;
     const scaleX = this.canvas.width / refWidth;
     const scaleY = this.canvas.height / refHeight;
 
-    const size = 15 * scaleX; // Scale size based on width scale
-    const shadowSize = size * 1.2;
-    const healthBarWidth = size * 2 + (10 * scaleX);
+    const size = 16 * scaleX;
+    const pixel = 2 * scaleX;
+    const healthBarWidth = size * 2;
     const healthBarHeight = 6 * scaleY;
-    const healthBarYOffset = -12 * scaleY; // Offset above unit top
-    const textYOffset = 5 * scaleY; // Offset below unit center for initial
-    const hpTextYOffset = -15 * scaleY; // Offset above unit top for HP text
+    const healthBarYOffset = -12 * scaleY;
+    const hpTextYOffset = -15 * scaleY;
 
     // Shadow
     this.ctx.fillStyle = "rgba(0,0,0,0.4)";
-    this.ctx.beginPath();
-    // Scale shadow offset slightly
-    this.ctx.arc(unit.x + (2 * scaleX) + size, unit.y + (2 * scaleY) + size, shadowSize, 0, Math.PI * 2);
-    this.ctx.fill();
+    this.ctx.fillRect(unit.x, unit.y + size * 1.2, size * 2, size * 0.2);
 
-    // Unit Shape
-    this.ctx.fillStyle = unit.type.color;
-    this.ctx.globalAlpha = unit.opacity || 1;
-    this.ctx.shadowColor = unit.type.color; // Glow effect
-    this.ctx.shadowBlur = 10 * scaleX; // Scale blur slightly
-    this.ctx.beginPath();
+    // Spawn animation
+    const spawnScale = unit.spawnTime && Date.now() - unit.spawnTime < 300 ? 1 + 0.1 * Math.sin(Date.now() / 50) : 1;
+    this.ctx.save();
+    this.ctx.translate(unit.x + size, unit.y + size);
+    this.ctx.scale(spawnScale, spawnScale);
+    this.ctx.translate(-(unit.x + size), -(unit.y + size));
+
+    // Pixel-art rendering
+    const drawPixel = (px, py, color) => {
+      this.ctx.fillStyle = color;
+      this.ctx.fillRect(unit.x + px * pixel, unit.y + py * pixel, pixel, pixel);
+    };
+
     switch (unit.type.name.toUpperCase()) {
       case "BARBARIAN":
-        this.ctx.arc(unit.x + size, unit.y + size, size, 0, Math.PI * 2);
+        drawPixel(4, 2, "#f4a261"); drawPixel(5, 2, "#f4a261"); drawPixel(6, 2, "#f4a261"); drawPixel(7, 2, "#f4a261");
+        drawPixel(4, 3, "#f4a261"); drawPixel(7, 3, "#f4a261");
+        drawPixel(5, 4, "#3b5998"); drawPixel(6, 4, "#3b5998"); drawPixel(5, 5, "#3b5998"); drawPixel(6, 5, "#3b5998");
+        drawPixel(5, 6, "#3b5998"); drawPixel(6, 6, "#3b5998"); drawPixel(5, 7, "#3b5998"); drawPixel(6, 7, "#3b5998");
+        drawPixel(8, 4, "#666"); drawPixel(8, 5, "#666"); drawPixel(9, 4, "#999"); drawPixel(10, 4, "#999");
         break;
       case "ARCHER":
-        this.ctx.moveTo(unit.x + size, unit.y); // Top point
-        this.ctx.lineTo(unit.x + size * 2, unit.y + size * 2); // Bottom right
-        this.ctx.lineTo(unit.x, unit.y + size * 2); // Bottom left
-        this.ctx.closePath();
+        drawPixel(4, 2, "#f4a261"); drawPixel(5, 2, "#f4a261"); drawPixel(6, 2, "#f4a261"); drawPixel(7, 2, "#f4a261");
+        drawPixel(4, 3, "#f4a261"); drawPixel(7, 3, "#f4a261");
+        drawPixel(5, 4, "#28a745"); drawPixel(6, 4, "#28a745"); drawPixel(5, 5, "#28a745"); drawPixel(6, 5, "#28a745");
+        drawPixel(5, 6, "#28a745"); drawPixel(6, 6, "#28a745");
+        drawPixel(8, 4, "#8b5e3c"); drawPixel(8, 5, "#8b5e3c"); drawPixel(9, 3, "#ccc"); drawPixel(9, 5, "#ccc");
         break;
-      case "HORSE": // Pentagon shape
-        for (let i = 0; i < 5; i++) {
-          const angle = (Math.PI * 2 * i) / 5 - Math.PI / 2; // Start from top point
-          const px = unit.x + size + Math.cos(angle) * size;
-          const py = unit.y + size + Math.sin(angle) * size;
-          if (i === 0) this.ctx.moveTo(px, py);
-          else this.ctx.lineTo(px, py);
-        }
-        this.ctx.closePath();
+      case "HORSE":
+        drawPixel(8, 2, "#dc3545"); drawPixel(9, 2, "#dc3545"); drawPixel(10, 2, "#dc3545");
+        drawPixel(8, 3, "#dc3545"); drawPixel(9, 3, "#dc3545");
+        drawPixel(4, 4, "#dc3545"); drawPixel(5, 4, "#dc3545"); drawPixel(6, 4, "#dc3545"); drawPixel(7, 4, "#dc3545");
+        drawPixel(4, 5, "#dc3545"); drawPixel(5, 5, "#dc3545"); drawPixel(6, 5, "#dc3545"); drawPixel(7, 5, "#dc3545");
+        drawPixel(4, 6, "#dc3545"); drawPixel(7, 6, "#dc3545");
         break;
-      case "KNIGHT": // Square shape
-        this.ctx.rect(unit.x, unit.y, size * 2, size * 2);
+      case "KNIGHT":
+        drawPixel(4, 1, "#ffd700"); drawPixel(5, 1, "#ffd700"); drawPixel(6, 1, "#ffd700"); drawPixel(7, 1, "#ffd700");
+        drawPixel(4, 2, "#ffd700"); drawPixel(7, 2, "#ffd700");
+        drawPixel(5, 3, "#ffd700"); drawPixel(6, 3, "#ffd700"); drawPixel(5, 4, "#ffd700"); drawPixel(6, 4, "#ffd700");
+        drawPixel(5, 5, "#ffd700"); drawPixel(6, 5, "#ffd700"); drawPixel(5, 6, "#ffd700"); drawPixel(6, 6, "#ffd700");
+        drawPixel(3, 4, "#666"); drawPixel(3, 5, "#666"); drawPixel(2, 4, "#999"); drawPixel(2, 5, "#999");
         break;
     }
-    this.ctx.fill();
-    this.ctx.shadowBlur = 0; // Reset shadow for other elements
-    this.ctx.globalAlpha = 1; // Reset alpha
+
+    this.ctx.restore();
 
     // Health Bar
     const maxHealth = unit.maxHp || (unit.type.health + (window.GameState.unitHealthUpgrades * 3));
     const healthPercentage = Math.max(0, unit.hp / maxHealth);
 
-    // Health Bar Background
     this.ctx.fillStyle = "rgba(0,0,0,0.8)";
-    // Position relative to unit's top-left (unit.x, unit.y)
+    this.ctx.strokeStyle = "#fff";
+    this.ctx.lineWidth = 1 * scaleX;
     this.ctx.fillRect(unit.x - (5 * scaleX), unit.y + healthBarYOffset, healthBarWidth, healthBarHeight);
+    this.ctx.strokeRect(unit.x - (5 * scaleX), unit.y + healthBarYOffset, healthBarWidth, healthBarHeight);
 
-    // Health Bar Foreground
     this.ctx.fillStyle = healthPercentage > 0.6 ? "#28a745" : healthPercentage > 0.3 ? "#ffd700" : "#dc3545";
     this.ctx.fillRect(unit.x - (5 * scaleX), unit.y + healthBarYOffset, healthBarWidth * healthPercentage, healthBarHeight);
 
-    // Unit Text (Initial and HP)
-    this.ctx.fillStyle = "#fff";
-    this.ctx.textAlign = "center"; // Center text horizontally
+    // Unit Text
+    this.ctx.fillStyle = "#f5f5f5";
+    this.ctx.textAlign = "center";
+    this.ctx.font = `${Math.max(10, 12 * scaleX)}px 'VT323', 'Press Start 2P', 'Courier New', monospace`;
+    this.ctx.fillText(unit.type.name.charAt(0).toUpperCase(), unit.x + size, unit.y + size + (5 * scaleY));
 
-    // Unit Initial (e.g., 'B', 'A') - Centered within the shape
-    this.ctx.font = `${Math.max(9, 12 * scaleX)}px Roboto`; // Scaled font, min 9px
-    this.ctx.fillText(unit.type.name.charAt(0).toUpperCase(), unit.x + size, unit.y + size + textYOffset);
-
-    // HP Text (e.g., '10/15') - Centered above the health bar
-    this.ctx.font = `${Math.max(8, 10 * scaleX)}px Roboto`; // Slightly smaller font, min 8px
+    // HP Text
+    this.ctx.font = `${Math.max(9, 11 * scaleX)}px 'VT323', 'Press Start 2P', 'Courier New', monospace`;
     this.ctx.fillText(`${Math.floor(unit.hp)}/${Math.floor(maxHealth)}`, unit.x + size, unit.y + hpTextYOffset);
 
-    this.ctx.textAlign = "left"; // Reset alignment for other drawing functions
-    // --- REMOVED CONSOLE LOG ---
-    // console.log(`Drawing unit: ${unit.type.name} at x:${unit.x}, y:${unit.y}, opacity:${unit.opacity}`);
+    this.ctx.textAlign = "left";
   };
 
   // Expose Canvas

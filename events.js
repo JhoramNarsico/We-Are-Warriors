@@ -2,17 +2,18 @@
   const Events = {};
 
   Events.init = function () {
-    // Unit Selection
     window.UI.unitButtons.forEach(button => {
       button.addEventListener("click", () => {
         const unitType = button.dataset.unit;
+        // Reset isSelected for all units
+        window.Units.units.forEach(unit => unit.isSelected = false);
+        window.Units.enemyUnits.forEach(unit => unit.isSelected = false);
         window.Units.selectedUnitType = window.Units.UNIT_TYPES[unitType];
         window.UI.updateUnitSelectionUI();
         console.log(`Selected unit: ${unitType}`);
       });
     });
 
-    // Spawn Button
     const spawnButton = document.getElementById("spawnButton");
     if (spawnButton) {
       spawnButton.addEventListener("click", () => {
@@ -22,7 +23,6 @@
       console.error("Spawn button not found!");
     }
 
-    // Keyboard Shortcut for Spawn
     document.addEventListener("keydown", (e) => {
       if (e.code === "Space" && window.GameState.gameActive && !window.GameState.gamePaused && !window.GameState.gameOver) {
         e.preventDefault();
@@ -30,7 +30,6 @@
       }
     });
 
-    // Fight Button
     const fightButton = document.getElementById("fightButton");
     if (!fightButton) {
       console.error("Fight button not found!");
@@ -47,7 +46,7 @@
           if (window.GameState.gameOver) {
             window.GameState.initGame();
             window.UI.gameOverModal.style.display = "none";
-            window.Game.gameLoopRunning = false; // Reset loop flag
+            window.Game.gameLoopRunning = false;
             window.UI.showFeedback("Starting new battle!");
           }
           if (!window.GameState.gameActive && !window.GameState.waveCooldown) {
@@ -67,7 +66,6 @@
       });
     }
 
-    // Pause Button
     const pauseButton = document.getElementById("pauseButton");
     if (pauseButton) {
       pauseButton.addEventListener("click", () => {
@@ -81,7 +79,6 @@
       });
     }
 
-    // Surrender Button
     const surrenderButton = document.getElementById("surrenderButton");
     if (surrenderButton) {
       surrenderButton.addEventListener("click", () => {
@@ -91,7 +88,6 @@
       });
     }
 
-    // Restart Button
     const restartButton = document.getElementById("restartButton");
     if (restartButton) {
       restartButton.addEventListener("click", () => {
@@ -103,7 +99,6 @@
       });
     }
 
-    // Sound Toggle Button
     const soundToggleButton = document.getElementById("soundToggleButton");
     if (soundToggleButton) {
       soundToggleButton.addEventListener("click", () => {
@@ -113,7 +108,6 @@
       });
     }
 
-    // Pause Menu Buttons
     const resumeButton = document.getElementById("resumeButton");
     if (resumeButton) {
       resumeButton.addEventListener("click", () => {
@@ -142,7 +136,6 @@
       });
     }
 
-    // Game Over Modal Buttons
     const gameOverRestartButton = document.getElementById("gameOverRestartButton");
     if (gameOverRestartButton) {
       gameOverRestartButton.addEventListener("click", () => {
@@ -163,7 +156,6 @@
       });
     }
 
-    // Tutorial Modal Button
     const startTutorialButton = document.getElementById("startTutorialButton");
     if (startTutorialButton) {
       startTutorialButton.addEventListener("click", () => {
@@ -174,7 +166,6 @@
       });
     }
 
-    // Keyboard Accessibility
     document.addEventListener("keydown", (e) => {
       if (e.code === "Escape" && window.GameState.gameActive && !window.GameState.gameOver) {
         window.GameState.gamePaused = !window.GameState.gamePaused;
@@ -185,7 +176,6 @@
       }
     });
 
-    // Prevent default context menu on canvas
     if (window.Canvas.canvas) {
       window.Canvas.canvas.addEventListener("contextmenu", (e) => {
         e.preventDefault();
@@ -193,6 +183,5 @@
     }
   };
 
-  // Expose Events
   window.Events = Events;
 })();
