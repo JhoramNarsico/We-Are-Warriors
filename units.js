@@ -350,9 +350,6 @@
             unit.lastAttack = Date.now();
             window.GameState.enemyBaseHealth = Math.max(0, window.GameState.enemyBaseHealth - Math.floor(unit.damage));
             window.UI.showDamageNumber(enemyBaseX, enemyBaseY, Math.floor(unit.damage), false);
-            if (window.GameState.enemyBaseHealth <= 0 && !window.GameState.gameOver) {
-              window.UI.showGameOverModal("Victory!");
-            }
           }
         } else {
           let targetX, targetY;
@@ -452,36 +449,66 @@
       window.UI.updateFooter();
       window.UI.drawWaveProgress();
 
-      if (window.GameState.wave > window.GameState.maxWaves) {
-        window.UI.showGameOverModal("Victory!");
-      } else {
-        window.GameState.waveCooldown = true;
-        window.GameState.waveCooldownTimer = 5;
-        window.UI.drawWaveCooldown(window.GameState.waveCooldownTimer);
-        if (window.GameState.waveCooldownInterval) clearInterval(window.GameState.waveCooldownInterval);
-        window.GameState.waveCooldownInterval = setInterval(() => {
-          if (window.GameState.gamePaused || window.GameState.gameOver) return;
+      window.GameState.waveCooldown = true;
+      window.GameState.waveCooldownTimer = 5;
+      window.UI.drawWaveCooldown(window.GameState.waveCooldownTimer);
+      if (window.GameState.waveCooldownInterval) clearInterval(window.GameState.waveCooldownInterval);
+      window.GameState.waveCooldownInterval = setInterval(() => {
+        if (window.GameState.gamePaused || window.GameState.gameOver) return;
 
-          window.GameState.waveCooldownTimer--;
-          window.UI.drawWaveCooldown(window.GameState.waveCooldownTimer);
-          if (window.GameState.waveCooldownTimer <= 0) {
-            clearInterval(window.GameState.waveCooldownInterval);
-            window.GameState.waveCooldownInterval = null;
-            window.UI.hideWaveCooldown();
-            window.GameState.waveCooldown = false;
-            window.UI.updateButtonStates();
-            window.UI.showFeedback(`Wave ${window.GameState.wave} incoming! Press Fight!`);
-          }
-        }, 1000);
+        window.GameState.waveCooldownTimer--;
+        window.UI.drawWaveCooldown(window.GameState.waveCooldownTimer);
+        if (window.GameState.waveCooldownTimer <= 0) {
+          clearInterval(window.GameState.waveCooldownInterval);
+          window.GameState.waveCooldownInterval = null;
+          window.UI.hideWaveCooldown();
+          window.GameState.waveCooldown = false;
+          window.UI.updateButtonStates();
+          window.UI.showFeedback(`Wave ${window.GameState.wave} incoming! Press Fight!`);
+        }
+      }, 1000);
+    }
+
+    if (window.GameState.enemyBaseHealth <= 0 && !window.GameState.gameOver) {
+      console.log(`Enemy base destroyed! Advancing to wave ${window.GameState.wave + 1}`);
+      window.GameState.wave++;
+      window.GameState.waveStarted = false;
+      window.GameState.gold += 20 + Math.floor(window.GameState.wave * 2);
+      window.GameState.diamonds += 5;
+      window.GameState.enemyBaseHealth = 150; // Reset enemy base health
+      this.units = []; // Clear allied units
+      this.enemyUnits = []; // Clear enemy units
+      try {
+        localStorage.setItem('warriorDiamonds', window.GameState.diamonds);
+      } catch (e) {
+        console.error("Failed to save diamonds:", e);
+        window.UI.showFeedback("Warning: Unable to save progress.");
       }
+      window.UI.updateFooter();
+      window.UI.drawWaveProgress();
+
+      window.GameState.waveCooldown = true;
+      window.GameState.waveCooldownTimer = 5;
+      window.UI.drawWaveCooldown(window.GameState.waveCooldownTimer);
+      if (window.GameState.waveCooldownInterval) clearInterval(window.GameState.waveCooldownInterval);
+      window.GameState.waveCooldownInterval = setInterval(() => {
+        if (window.GameState.gamePaused || window.GameState.gameOver) return;
+
+        window.GameState.waveCooldownTimer--;
+        window.UI.drawWaveCooldown(window.GameState.waveCooldownTimer);
+        if (window.GameState.waveCooldownTimer <= 0) {
+          clearInterval(window.GameState.waveCooldownInterval);
+          window.GameState.waveCooldownInterval = null;
+          window.UI.hideWaveCooldown();
+          window.GameState.waveCooldown = false;
+          window.UI.updateButtonStates();
+          window.UI.showFeedback(`Wave ${window.GameState.wave} incoming! Press Fight!`);
+        }
+      }, 1000);
     }
 
     if (window.GameState.baseHealth <= 0 && !window.GameState.gameOver) {
       window.UI.showGameOverModal("Defeat!");
-      return;
-    }
-    if (window.GameState.enemyBaseHealth <= 0 && !window.GameState.gameOver) {
-      window.UI.showGameOverModal("Victory!");
       return;
     }
 
