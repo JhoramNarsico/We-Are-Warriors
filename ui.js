@@ -209,11 +209,30 @@
     }
     
     const canvasRect = window.Canvas.canvas.getBoundingClientRect();
-    damageText.style.left = `${x + canvasRect.left}px`;
-    damageText.style.top = `${y + canvasRect.top - 20}px`;
+    const scaleX = window.Canvas.canvas.width / window.Canvas.canvas.offsetWidth;
+    const scaleY = window.Canvas.canvas.height / window.Canvas.canvas.offsetHeight;
+
+    // Player base is at x=60; enemy base is at x=750
+    let targetX = x;
+    if (Math.abs(x - 750) < 10) { // Enemy base damage
+      targetX = 60; // Position near player base
+      damageText.classList.add("enemy-base-damage");
+    }
+
+    let left = (targetX / scaleX) + canvasRect.left;
+    if (damageText.classList.contains("enemy-base-damage")) {
+      left += 20; // Horizontal offset to make it adjacent to player base damage text
+    }
+
+    // Ensure text stays within canvas bounds
+    const textWidth = Math.min(50, 10 + damageText.textContent.length * 8);
+    left = Math.max(canvasRect.left, Math.min(left, canvasRect.right - textWidth));
+
+    damageText.style.left = `${left}px`;
+    damageText.style.top = `${(y / scaleY) + canvasRect.top - 20}px`;
     
     damageText.style.color = isPlayerTakingDamage ? "#ff4d4d" : "#ffdd00";
-    damageText.style.fontSize = isPlayerTakingDamage ? "18px" : "16px";
+    damageText.style.fontSize = isPlayerTakingDamage ? "14px" : "12px";
     damageText.style.fontWeight = "bold";
     damageText.style.textShadow = isPlayerTakingDamage ? 
       "0 0 3px rgba(0,0,0,0.8), 0 0 1px #000" : 
@@ -222,8 +241,8 @@
     document.body.appendChild(damageText);
 
     requestAnimationFrame(() => {
-      damageText.style.transition = "transform 0.8s ease-out, opacity 0.7s ease-in";
-      damageText.style.transform = "translateY(-40px) scale(1.2)";
+      damageText.style.transition = "transform 0.6s ease-out, opacity 0.6s ease-in";
+      damageText.style.transform = "translateY(-30px) scale(1.1)";
       
       setTimeout(() => {
         damageText.style.opacity = "0";
@@ -234,7 +253,7 @@
       if (document.body.contains(damageText)) {
         document.body.removeChild(damageText);
       }
-    }, 1000);
+    }, 800);
   };
 
   UI.showGameOverModal = function (message) {
