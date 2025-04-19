@@ -373,6 +373,10 @@ body {
   box-shadow: 0 6px 25px rgba(0, 0, 0, 0.7);
 }
 
+#pauseMenu > div button, #gameOverModal > div button {
+  margin: 8px;
+}
+
 #tutorialModal .tutorial-content {
   text-align: left;
   color: #f5f5f5;

@@ -65,6 +65,9 @@
             <h2>Paused</h2>
             <div id="upgradesList"></div>
             <button id="resumeButton" class="control-button">Resume</button>
+            <button id="saveGameButton" class="control-button">Save Game</button>
+            <button id="loadGameButton" class="control-button">Load Game</button>
+            <button id="newGameButton" class="control-button">New Game</button>
         </div>
     </div>
     <div id="gameOverModal">
@@ -73,6 +76,9 @@
             <p id="gameOverWave"></p>
             <button id="gameOverRestartButton" class="control-button">Restart</button>
             <button id="gameOverShopButton" class="control-button">Shop</button>
+            <button id="saveGameButton" class="control-button">Save Game</button>
+            <button id="loadGameButton" class="control-button">Load Game</button>
+            <button id="newGameButton" class="control-button">New Game</button>
         </div>
     </div>
     <div id="tutorialModal">
@@ -115,12 +121,14 @@
                     <p><strong>Pause:</strong> Click "Pause" or press <strong>Esc</strong>.</p>
                     <p><strong>Surrender/Restart:</strong> Use buttons in the footer.</p>
                     <p><strong>Sound:</strong> Toggle with the sound button in the header.</p>
+                    <p><strong>Save/Load:</strong> Use pause or game over menu to save or load progress.</p>
                 </div>
             </div>
             <div class="tutorial-navigation">
                 <button id="tutorialPrevButton" class="control-button" disabled>Previous</button>
                 <button id="tutorialNextButton" class="control-button">Next</button>
-                <button id="startTutorialButton" class="control-button" style="display: none;">Start Game</button>
+                <button id="startTutorialButton" class="control-button" style="display: none;">Start New Game</button>
+                <button id="loadGameButton" class="control-button" style="display: none;">Load Saved Game</button>
             </div>
         </div>
     </div>

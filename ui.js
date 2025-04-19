@@ -440,11 +440,15 @@
     const surrenderButton = document.getElementById("surrenderButton");
     const restartButton = document.getElementById("restartButton");
     const spawnButton = document.getElementById("spawnButton");
+    const saveGameButton = document.getElementById("saveGameButton");
+    const loadGameButton = document.getElementById("loadGameButton");
 
     if (fightButton) fightButton.disabled = window.GameState.gameActive || window.GameState.gameOver || window.GameState.waveCooldown;
     if (pauseButton) pauseButton.disabled = !window.GameState.gameActive || window.GameState.gameOver;
     if (surrenderButton) surrenderButton.disabled = !window.GameState.gameActive || window.GameState.gameOver;
     if (spawnButton) spawnButton.disabled = !window.GameState.gameActive || window.GameState.gamePaused || window.GameState.gameOver;
+    if (saveGameButton) saveGameButton.disabled = !window.GameState.gameActive || window.GameState.gameOver;
+    if (loadGameButton) loadGameButton.disabled = window.GameState.gameActive || window.GameState.gameOver;
 
     if (pauseButton) pauseButton.textContent = window.GameState.gamePaused ? "Resume" : "Pause";
 

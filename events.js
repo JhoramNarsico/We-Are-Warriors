@@ -5,7 +5,6 @@
     window.UI.unitButtons.forEach(button => {
       button.addEventListener("click", () => {
         const unitType = button.dataset.unit;
-        // Reset isSelected for all units
         window.Units.units.forEach(unit => unit.isSelected = false);
         window.Units.enemyUnits.forEach(unit => unit.isSelected = false);
         window.Units.selectedUnitType = window.Units.UNIT_TYPES[unitType];
@@ -164,6 +163,48 @@
         window.GameState.initGame();
         window.UI.showFeedback("Tutorial completed! Ready to fight!");
         window.UI.updateButtonStates();
+      });
+    }
+
+    const saveGameButton = document.getElementById("saveGameButton");
+    if (saveGameButton) {
+      saveGameButton.addEventListener("click", () => {
+        window.GameState.saveGame();
+        window.UI.updateButtonStates();
+      });
+    }
+
+    const loadGameButton = document.getElementById("loadGameButton");
+    if (loadGameButton) {
+      loadGameButton.addEventListener("click", () => {
+        window.GameState.initGame(true);
+        window.UI.pauseMenu.style.display = "none";
+        window.UI.gameOverModal.style.display = "none";
+        window.UI.updateButtonStates();
+        window.UI.updateFooter();
+        window.UI.updateUnitSelectionUI();
+        window.UI.updateUnitInfoPanel();
+        window.UI.updateUpgradesDisplay();
+        window.Shop.updateShop();
+        window.UI.drawWaveProgress();
+      });
+    }
+
+    const newGameButton = document.getElementById("newGameButton");
+    if (newGameButton) {
+      newGameButton.addEventListener("click", () => {
+        if (confirm("Are you sure you want to start a new game? All progress will be lost.")) {
+          window.GameState.resetGame();
+          window.UI.pauseMenu.style.display = "none";
+          window.UI.gameOverModal.style.display = "none";
+          window.UI.updateButtonStates();
+          window.UI.updateFooter();
+          window.UI.updateUnitSelectionUI();
+          window.UI.updateUnitInfoPanel();
+          window.UI.updateUpgradesDisplay();
+          window.Shop.updateShop();
+          window.UI.drawWaveProgress();
+        }
       });
     }
 
