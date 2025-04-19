@@ -105,13 +105,13 @@
   }
 
   Units.getScaledEnemyStats = function (type, currentWave) {
-    const healthScale = Math.min(10, Math.pow(1.15, currentWave - 1));
-    const damageScale = Math.min(10, Math.pow(1.12, currentWave - 1));
+    const healthScale = Math.max(1.2, Math.pow(1.20, currentWave - 1));
+    const damageScale = Math.max(1.1, Math.pow(1.15, currentWave - 1));
     return {
       health: Math.floor(this.BASE_ENEMY_STATS[type].health * healthScale),
       damage: Math.floor(this.BASE_ENEMY_STATS[type].damage * damageScale),
       speed: this.BASE_ENEMY_STATS[type].speed,
-      reward: this.BASE_ENEMY_STATS[type].reward + Math.floor(currentWave * 0.5)
+      reward: Math.floor(this.BASE_ENEMY_STATS[type].reward + currentWave * 0.75)
     };
   };
 
@@ -127,19 +127,22 @@
       return;
     }
 
-    const barbarianCount = Math.min(10, 2 + Math.floor(waveNum / 3));
-    const archerCount = Math.min(5, Math.floor((waveNum - 2) / 4));
-    const horseCount = Math.min(3, Math.floor((waveNum - 4) / 6));
-    const knightCount = waveNum >= 10 ? Math.min(2, Math.floor(waveNum / 12)) : 0;
+    this.enemyUnits = [];
+    this.updateGrid();
 
-    const spawnX = window.Canvas.canvas.width * 0.9375;
+    const barbarianCount = 3 + Math.floor(waveNum / 2);
+    const archerCount = Math.floor(waveNum / 3);
+    const horseCount = Math.floor(waveNum / 4);
+    const knightCount = waveNum >= 10 ? Math.floor(waveNum / 10) : 0;
+
+    const spawnX = window.Canvas.canvas.width * 0.9;
     const laneHeight = window.Canvas.canvas.height * 0.166;
     const startY = window.Canvas.canvas.height * 0.333;
 
     for (let i = 0; i < barbarianCount; i++) {
       const stats = this.getScaledEnemyStats("BARBARIAN", waveNum);
       const lane = i % 3;
-      this.enemyUnits.push({
+      const unit = {
         x: spawnX,
         y: startY + lane * laneHeight + (Math.random() - 0.5) * laneHeight * 0.5,
         type: { ...this.UNIT_TYPES.BARBARIAN, ...stats },
@@ -152,12 +155,16 @@
         lastAttack: null,
         lastGridKey: null,
         spawnTime: Date.now()
-      });
+      };
+      if (unit.x < 0 || unit.x > window.Canvas.canvas.width || unit.y < 0 || unit.y > window.Canvas.canvas.height) {
+        console.error(`Barbarian spawn out of bounds: x=${unit.x}, y=${unit.y}`);
+      }
+      this.enemyUnits.push(unit);
     }
     for (let i = 0; i < archerCount; i++) {
       const stats = this.getScaledEnemyStats("ARCHER", waveNum);
       const lane = i % 3;
-      this.enemyUnits.push({
+      const unit = {
         x: spawnX,
         y: startY + lane * laneHeight + (Math.random() - 0.5) * laneHeight * 0.5,
         type: { ...this.UNIT_TYPES.ARCHER, ...stats },
@@ -170,12 +177,16 @@
         lastAttack: null,
         lastGridKey: null,
         spawnTime: Date.now()
-      });
+      };
+      if (unit.x < 0 || unit.x > window.Canvas.canvas.width || unit.y < 0 || unit.y > window.Canvas.canvas.height) {
+        console.error(`Archer spawn out of bounds: x=${unit.x}, y=${unit.y}`);
+      }
+      this.enemyUnits.push(unit);
     }
     for (let i = 0; i < horseCount; i++) {
       const stats = this.getScaledEnemyStats("HORSE", waveNum);
       const lane = i % 3;
-      this.enemyUnits.push({
+      const unit = {
         x: spawnX,
         y: startY + lane * laneHeight + (Math.random() - 0.5) * laneHeight * 0.5,
         type: { ...this.UNIT_TYPES.HORSE, ...stats },
@@ -188,12 +199,16 @@
         lastAttack: null,
         lastGridKey: null,
         spawnTime: Date.now()
-      });
+      };
+      if (unit.x < 0 || unit.x > window.Canvas.canvas.width || unit.y < 0 || unit.y > window.Canvas.canvas.height) {
+        console.error(`Horse spawn out of bounds: x=${unit.x}, y=${unit.y}`);
+      }
+      this.enemyUnits.push(unit);
     }
     for (let i = 0; i < knightCount; i++) {
       const stats = this.getScaledEnemyStats("KNIGHT", waveNum);
       const lane = i % 3;
-      this.enemyUnits.push({
+      const unit = {
         x: spawnX,
         y: startY + lane * laneHeight + (Math.random() - 0.5) * laneHeight * 0.5,
         type: { ...this.UNIT_TYPES.KNIGHT, ...stats },
@@ -206,11 +221,16 @@
         lastAttack: null,
         lastGridKey: null,
         spawnTime: Date.now()
-      });
+      };
+      if (unit.x < 0 || unit.x > window.Canvas.canvas.width || unit.y < 0 || unit.y > window.Canvas.canvas.height) {
+        console.error(`Knight spawn out of bounds: x=${unit.x}, y=${unit.y}`);
+      }
+      this.enemyUnits.push(unit);
     }
 
     window.GameState.waveStarted = true;
-    console.log(`Spawned ${this.enemyUnits.length} enemy units for wave ${waveNum}`);
+    console.log(`Spawned ${this.enemyUnits.length} enemy units for wave ${waveNum}: Barbarians=${barbarianCount}, Archers=${archerCount}, Horses=${horseCount}, Knights=${knightCount}`);
+    window.UI.showFeedback(`Wave ${waveNum} started with ${this.enemyUnits.length} enemies!`);
   };
 
   Units.spawnUnit = function () {
@@ -441,43 +461,15 @@
       window.Canvas.drawUnit(unit);
     }
 
-    if (this.enemyUnits.length === 0 && window.GameState.waveStarted && !window.GameState.gameOver) {
-      console.log(`Wave ${window.GameState.wave} cleared!`);
-      window.GameState.wave++;
-      window.GameState.waveStarted = false;
-      window.GameState.gold += 10 + Math.floor(window.GameState.wave * 1.5);
-      window.UI.updateFooter();
-      window.UI.drawWaveProgress();
-
-      window.GameState.waveCooldown = true;
-      window.GameState.waveCooldownTimer = 5;
-      window.UI.drawWaveCooldown(window.GameState.waveCooldownTimer);
-      if (window.GameState.waveCooldownInterval) clearInterval(window.GameState.waveCooldownInterval);
-      window.GameState.waveCooldownInterval = setInterval(() => {
-        if (window.GameState.gamePaused || window.GameState.gameOver) return;
-
-        window.GameState.waveCooldownTimer--;
-        window.UI.drawWaveCooldown(window.GameState.waveCooldownTimer);
-        if (window.GameState.waveCooldownTimer <= 0) {
-          clearInterval(window.GameState.waveCooldownInterval);
-          window.GameState.waveCooldownInterval = null;
-          window.UI.hideWaveCooldown();
-          window.GameState.waveCooldown = false;
-          window.UI.updateButtonStates();
-          window.UI.showFeedback(`Wave ${window.GameState.wave} incoming! Press Fight!`);
-        }
-      }, 1000);
-    }
-
     if (window.GameState.enemyBaseHealth <= 0 && !window.GameState.gameOver) {
       console.log(`Enemy base destroyed! Advancing to wave ${window.GameState.wave + 1}`);
       window.GameState.wave++;
       window.GameState.waveStarted = false;
       window.GameState.gold += 20 + Math.floor(window.GameState.wave * 2);
       window.GameState.diamonds += 5;
-      window.GameState.enemyBaseHealth = 150; // Reset enemy base health
-      this.units = []; // Clear allied units
-      this.enemyUnits = []; // Clear enemy units
+      window.GameState.enemyBaseHealth = 150;
+      this.units = [];
+      this.enemyUnits = [];
       try {
         localStorage.setItem('warriorDiamonds', window.GameState.diamonds);
       } catch (e) {
@@ -486,25 +478,10 @@
       }
       window.UI.updateFooter();
       window.UI.drawWaveProgress();
-
-      window.GameState.waveCooldown = true;
-      window.GameState.waveCooldownTimer = 5;
-      window.UI.drawWaveCooldown(window.GameState.waveCooldownTimer);
-      if (window.GameState.waveCooldownInterval) clearInterval(window.GameState.waveCooldownInterval);
-      window.GameState.waveCooldownInterval = setInterval(() => {
-        if (window.GameState.gamePaused || window.GameState.gameOver) return;
-
-        window.GameState.waveCooldownTimer--;
-        window.UI.drawWaveCooldown(window.GameState.waveCooldownTimer);
-        if (window.GameState.waveCooldownTimer <= 0) {
-          clearInterval(window.GameState.waveCooldownInterval);
-          window.GameState.waveCooldownInterval = null;
-          window.UI.hideWaveCooldown();
-          window.GameState.waveCooldown = false;
-          window.UI.updateButtonStates();
-          window.UI.showFeedback(`Wave ${window.GameState.wave} incoming! Press Fight!`);
-        }
-      }, 1000);
+      if (window.GameState.gameActive) {
+        this.spawnWave(window.GameState.wave);
+        window.UI.showFeedback(`Enemy base destroyed! Wave ${window.GameState.wave} started!`);
+      }
     }
 
     if (window.GameState.baseHealth <= 0 && !window.GameState.gameOver) {
