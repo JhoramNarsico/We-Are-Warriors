@@ -124,6 +124,7 @@
       toggleShopButton.addEventListener("click", () => {
         const shop = document.getElementById("shop");
         shop.style.display = shop.style.display === "none" ? "block" : "none";
+        toggleShopButton.textContent = shop.style.display === "none" ? "Show Shop" : "Hide Shop";
         window.UI.showFeedback(shop.style.display === "none" ? "Shop hidden" : "Shop shown");
       });
     }

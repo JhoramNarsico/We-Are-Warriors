@@ -203,7 +203,7 @@
     damageText.className = "damage-text";
     
     if (isPlayerTakingDamage) {
-      damageText.classList.add("player-damage");
+      dañageText.classList.add("player-damage");
     } else {
       damageText.classList.add("enemy-damage");
     }
@@ -280,10 +280,41 @@
     
     this.tutorialModal.style.display = "flex";
     this.tutorialModal.classList.add("tutorial-animation");
+
+    const slides = this.tutorialModal.querySelectorAll('.tutorial-slide');
+    const prevButton = this.tutorialModal.querySelector('#tutorialPrevButton');
+    const nextButton = this.tutorialModal.querySelector('#tutorialNextButton');
+    const startButton = this.tutorialModal.querySelector('#startTutorialButton');
+    let currentSlide = 0;
+    const totalSlides = slides.length;
+
+    const updateSlide = () => {
+      slides.forEach((slide, index) => {
+        slide.classList.toggle('active', index === currentSlide);
+      });
+      prevButton.disabled = currentSlide === 0;
+      nextButton.style.display = currentSlide === totalSlides - 1 ? 'none' : 'inline-block';
+      startButton.style.display = currentSlide === totalSlides - 1 ? 'inline-block' : 'none';
+    };
+
+    prevButton.addEventListener('click', () => {
+      if (currentSlide > 0) {
+        currentSlide--;
+        updateSlide();
+      }
+    });
+
+    nextButton.addEventListener('click', () => {
+      if (currentSlide < totalSlides - 1) {
+        currentSlide++;
+        updateSlide();
+      }
+    });
+
+    updateSlide();
     
     setTimeout(() => {
-      const closeButton = this.tutorialModal.querySelector(".close-button");
-      if (closeButton) closeButton.focus();
+      prevButton.focus();
     }, 100);
   };
 

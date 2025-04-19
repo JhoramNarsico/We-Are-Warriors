@@ -65,8 +65,6 @@
             <h2>Paused</h2>
             <div id="upgradesList"></div>
             <button id="resumeButton" class="control-button">Resume</button>
-            <button id="surrenderPauseButton" class="control-button">Surrender</button>
-            <button id="toggleShopButton" class="control-button">Toggle Shop</button>
         </div>
     </div>
     <div id="gameOverModal">
@@ -78,10 +76,52 @@
         </div>
     </div>
     <div id="tutorialModal">
-        <div>
+        <div class="tutorial-content">
             <h2>Welcome to Warrior Defense!</h2>
-            <p>Select units, spawn them to fight enemies, and protect your base!</p>
-            <button id="startTutorialButton" class="control-button">Start Game</button>
+            <div class="tutorial-carousel">
+                <div class="tutorial-slide active" data-slide="0">
+                    <h3>Objective</h3>
+                    <p>Protect your base from enemy waves while destroying the enemy base. Survive all waves to win!</p>
+                </div>
+                <div class="tutorial-slide" data-slide="1">
+                    <h3>Resources</h3>
+                    <p><strong>Gold (💰):</strong> Earned over time and from defeating enemies. Use to spawn units.</p>
+                    <p><strong>Diamonds (💎):</strong> Earned from enemy kills and wave completion. Spend in the shop for upgrades.</p>
+                </div>
+                <div class="tutorial-slide" data-slide="2">
+                    <h3>Units</h3>
+                    <p>Select a unit type (Barbarian, Archer, Horse, Knight) from the left sidebar.</p>
+                    <p>Click "Spawn Unit" or press <strong>Spacebar</strong> to deploy the selected unit (costs gold).</p>
+                    <p>Units fight automatically, targeting enemies or the enemy base.</p>
+                </div>
+                <div class="tutorial-slide" data-slide="3">
+                    <h3>Shop & Upgrades</h3>
+                    <p>Access the shop (right sidebar) to spend diamonds on upgrades:</p>
+                    <ul>
+                        <li><strong>Base Health/Defense:</strong> Strengthen your base.</li>
+                        <li><strong>Unit Health/Damage:</strong> Boost all units.</li>
+                        <li><strong>Gold Production:</strong> Earn gold faster.</li>
+                        <li><strong>Unlock Knight:</strong> Access the powerful Knight unit.</li>
+                    </ul>
+                </div>
+                <div class="tutorial-slide" data-slide="4">
+                    <h3>Waves & Combat</h3>
+                    <p>Click "Fight!" to start a wave. Enemies spawn from the right.</p>
+                    <p>Destroy the enemy base to advance to the next wave.</p>
+                    <p>If your base's health reaches zero, you lose.</p>
+                </div>
+                <div class="tutorial-slide" data-slide="5">
+                    <h3>Controls</h3>
+                    <p><strong>Pause:</strong> Click "Pause" or press <strong>Esc</strong>.</p>
+                    <p><strong>Surrender/Restart:</strong> Use buttons in the footer.</p>
+                    <p><strong>Sound:</strong> Toggle with the sound button in the header.</p>
+                </div>
+            </div>
+            <div class="tutorial-navigation">
+                <button id="tutorialPrevButton" class="control-button" disabled>Previous</button>
+                <button id="tutorialNextButton" class="control-button">Next</button>
+                <button id="startTutorialButton" class="control-button" style="display: none;">Start Game</button>
+            </div>
         </div>
     </div>
     <audio id="spawnSound" src="./sounds/spawn.mp3"></audio>

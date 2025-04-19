@@ -239,6 +239,17 @@
       window.UI.showFeedback("Error: Game canvas not available!");
       return;
     }
+    console.log("Attempting to spawn unit", {
+      gameActive: window.GameState.gameActive,
+      gameOver: window.GameState.gameOver,
+      gamePaused: window.GameState.gamePaused,
+      gold: window.GameState.gold,
+      unitType: this.selectedUnitType.name,
+      cost: this.selectedUnitType.cost,
+      canvasWidth: window.Canvas.canvas.width,
+      canvasHeight: window.Canvas.canvas.height
+    });
+
     if (window.GameState.gameActive && !window.GameState.gameOver && !window.GameState.gamePaused) {
       if (this.selectedUnitType.name === "Knight" && !window.GameState.isKnightUnlocked) {
         window.UI.showFeedback("Knight is locked!");
@@ -266,10 +277,11 @@
           lastGridKey: null,
           spawnTime: Date.now()
         };
+
         if (newUnit.x < 0 || newUnit.x > window.Canvas.canvas.width || newUnit.y < 0 || newUnit.y > window.Canvas.canvas.height) {
-          console.error("Unit spawned outside canvas:", newUnit.x, newUnit.y);
-          window.UI.showFeedback("Unit spawned off-screen!");
+          console.warn(`Unit spawn potentially out of bounds: x=${newUnit.x}, y=${newUnit.y}`);
         }
+
         this.units.push(newUnit);
         console.log(`Spawned unit: ${newUnit.type.name} at x:${newUnit.x}, y:${newUnit.y}`);
         if (window.GameState.soundEnabled) {
@@ -279,40 +291,63 @@
         }
         window.UI.updateFooter();
       } else {
+        console.log("Not enough gold to spawn unit");
         window.UI.showFeedback("Not enough gold!");
       }
+    } else {
+      console.log("Cannot spawn unit: invalid game state");
+      window.UI.showFeedback("Cannot spawn: Game not active or paused!");
     }
   };
 
   Units.update = function () {
-    if (!window.GameState.gameActive || window.GameState.gameOver || window.GameState.gamePaused) {
-      requestAnimationFrame(this.update.bind(this));
-      return;
-    }
-
-    let needsGridUpdate = false;
-
-    this.units.forEach(unit => {
-      const currentKey = this.getGridKey(unit.x, unit.y);
-      if (unit.lastGridKey !== currentKey) needsGridUpdate = true;
-    });
-    this.enemyUnits.forEach(unit => {
-      const currentKey = this.getGridKey(unit.x, unit.y);
-      if (unit.lastGridKey !== currentKey) needsGridUpdate = true;
-    });
-
-    for (let i = this.units.length - 1; i >= 0; i--) {
-      const unit = this.units[i];
-      if (unit.hp <= 0) {
-        this.units.splice(i, 1);
-        needsGridUpdate = true;
+    try {
+      if (!window.GameState.gameActive || window.GameState.gameOver || window.GameState.gamePaused) {
+        requestAnimationFrame(this.update.bind(this));
+        return;
       }
-    }
-    for (let i = this.enemyUnits.length - 1; i >= 0; i--) {
-      const unit = this.enemyUnits[i];
-      if (unit.hp <= 0) {
-        window.GameState.gold += unit.type.reward;
-        window.GameState.diamonds += Math.floor(unit.type.reward / 2);
+
+      let needsGridUpdate = false;
+
+      // Check for grid updates
+      this.units.forEach(unit => {
+        const currentKey = this.getGridKey(unit.x, unit.y);
+        if (unit.lastGridKey !== currentKey) needsGridUpdate = true;
+      });
+      this.enemyUnits.forEach(unit => {
+        const currentKey = this.getGridKey(unit.x, unit.y);
+        if (unit.lastGridKey !== currentKey) needsGridUpdate = true;
+      });
+
+      // Collect rewards and units to remove
+      const rewards = { gold: 0, diamonds: 0 };
+      const unitsToRemove = [];
+      const enemyUnitsToRemove = [];
+
+      // Remove dead ally units
+      for (let i = this.units.length - 1; i >= 0; i--) {
+        const unit = this.units[i];
+        if (unit.hp <= 0) {
+          unitsToRemove.push(i);
+          needsGridUpdate = true;
+        }
+      }
+
+      // Remove dead enemy units and collect rewards
+      for (let i = this.enemyUnits.length - 1; i >= 0; i--) {
+        const unit = this.enemyUnits[i];
+        if (unit.hp <= 0) {
+          rewards.gold += unit.type.reward;
+          rewards.diamonds += Math.floor(unit.type.reward / 2);
+          enemyUnitsToRemove.push(i);
+          needsGridUpdate = true;
+        }
+      }
+
+      // Apply rewards and remove units outside the loop
+      if (rewards.gold > 0 || rewards.diamonds > 0) {
+        window.GameState.gold += rewards.gold;
+        window.GameState.diamonds += rewards.diamonds;
         try {
           localStorage.setItem('warriorDiamonds', window.GameState.diamonds);
         } catch (e) {
@@ -320,64 +355,129 @@
           window.UI.showFeedback("Warning: Unable to save progress.");
         }
         window.UI.updateFooter();
-        this.enemyUnits.splice(i, 1);
-        needsGridUpdate = true;
       }
-    }
 
-    if (needsGridUpdate) this.updateGrid();
+      // Remove units
+      unitsToRemove.forEach(i => this.units.splice(i, 1));
+      enemyUnitsToRemove.forEach(i => this.enemyUnits.splice(i, 1));
 
-    window.Canvas.ctx.clearRect(0, 0, window.Canvas.canvas.width, window.Canvas.canvas.height);
-
-    const playerMaxHealth = 150 + (window.GameState.baseHealthUpgrades * 25);
-    window.Canvas.drawBase(60, "#3b5998", window.GameState.baseHealth, playerMaxHealth, window.GameState.baseDefenseUpgrades);
-    window.Canvas.drawBase(750, "#dc3545", window.GameState.enemyBaseHealth, 150, 0);
-
-    for (let i = this.units.length - 1; i >= 0; i--) {
-      const unit = this.units[i];
-      let closestEnemy = null;
-      let closestDistanceSq = Infinity;
-
-      const nearbyEnemies = this.getNearbyUnits(unit.x, unit.y, true);
-      nearbyEnemies.forEach(({ unit: enemy }) => {
-        const dx = enemy.x - unit.x;
-        const dy = enemy.y - unit.y;
-        const distanceSq = dx * dx + dy * dy;
-        if (distanceSq < closestDistanceSq) {
-          closestDistanceSq = distanceSq;
-          closestEnemy = enemy;
+      if (needsGridUpdate) {
+        try {
+          this.updateGrid();
+        } catch (e) {
+          console.error("Grid update failed:", e);
+          window.UI.showFeedback("Error updating unit positions!");
         }
-      });
+      }
 
-      const attackRangeSq = Math.pow(30 * (window.Canvas.canvas.width / 800), 2);
-      const baseAttackRangeSq = Math.pow(50 * (window.Canvas.canvas.width / 800), 2);
-      const enemyBaseX = window.Canvas.canvas.width * 0.9375;
-      const enemyBaseY = window.Canvas.canvas.height * 0.5;
+      window.Canvas.ctx.clearRect(0, 0, window.Canvas.canvas.width, window.Canvas.canvas.height);
 
-      if (closestEnemy && closestDistanceSq <= attackRangeSq) {
-        if (!unit.lastAttack || Date.now() - unit.lastAttack > 1000) {
-          unit.lastAttack = Date.now();
-          closestEnemy.hp = Math.max(0, Math.floor(closestEnemy.hp - Math.floor(unit.damage)));
-          window.UI.showDamageNumber(closestEnemy.x, closestEnemy.y, Math.floor(unit.damage), false);
-        }
-      } else {
-        const dxToBase = enemyBaseX - unit.x;
-        const dyToBase = enemyBaseY - unit.y;
-        const distanceToBaseSq = dxToBase * dxToBase + dyToBase * dyToBase;
+      const playerMaxHealth = 150 + (window.GameState.baseHealthUpgrades * 25);
+      window.Canvas.drawBase(60, "#3b5998", window.GameState.baseHealth, playerMaxHealth, window.GameState.baseDefenseUpgrades);
+      window.Canvas.drawBase(750, "#dc3545", window.GameState.enemyBaseHealth, 150, 0);
 
-        if (distanceToBaseSq <= baseAttackRangeSq) {
+      // Update ally units
+      for (let i = this.units.length - 1; i >= 0; i--) {
+        const unit = this.units[i];
+        let closestEnemy = null;
+        let closestDistanceSq = Infinity;
+
+        const nearbyEnemies = this.getNearbyUnits(unit.x, unit.y, true);
+        nearbyEnemies.forEach(({ unit: enemy }) => {
+          const dx = enemy.x - unit.x;
+          const dy = enemy.y - unit.y;
+          const distanceSq = dx * dx + dy * dy;
+          if (distanceSq < closestDistanceSq) {
+            closestDistanceSq = distanceSq;
+            closestEnemy = enemy;
+          }
+        });
+
+        const attackRangeSq = Math.pow(30 * (window.Canvas.canvas.width / 800), 2);
+        const baseAttackRangeSq = Math.pow(50 * (window.Canvas.canvas.width / 800), 2);
+        const enemyBaseX = window.Canvas.canvas.width * 0.9375;
+        const enemyBaseY = window.Canvas.canvas.height * 0.5;
+
+        if (closestEnemy && closestDistanceSq <= attackRangeSq) {
           if (!unit.lastAttack || Date.now() - unit.lastAttack > 1000) {
             unit.lastAttack = Date.now();
-            window.GameState.enemyBaseHealth = Math.max(0, window.GameState.enemyBaseHealth - Math.floor(unit.damage));
-            window.UI.showDamageNumber(enemyBaseX, enemyBaseY, Math.floor(unit.damage), false);
+            closestEnemy.hp = Math.max(0, Math.floor(closestEnemy.hp - Math.floor(unit.damage)));
+            window.UI.showDamageNumber(closestEnemy.x, closestEnemy.y, Math.floor(unit.damage), false);
+          }
+        } else {
+          const dxToBase = enemyBaseX - unit.x;
+          const dyToBase = enemyBaseY - unit.y;
+          const distanceToBaseSq = dxToBase * dxToBase + dyToBase * dyToBase;
+
+          if (distanceToBaseSq <= baseAttackRangeSq) {
+            if (!unit.lastAttack || Date.now() - unit.lastAttack > 1000) {
+              unit.lastAttack = Date.now();
+              window.GameState.enemyBaseHealth = Math.max(0, window.GameState.enemyBaseHealth - Math.floor(unit.damage));
+              window.UI.showDamageNumber(enemyBaseX, enemyBaseY, Math.floor(unit.damage), false);
+            }
+          } else {
+            let targetX, targetY;
+            if (closestEnemy) {
+              targetX = closestEnemy.x;
+              targetY = closestEnemy.y;
+            } else {
+              targetX = enemyBaseX;
+              targetY = window.Canvas.canvas.height * 0.333 + unit.lane * (window.Canvas.canvas.height * 0.166);
+            }
+
+            const dx = targetX - unit.x;
+            const dy = targetY - unit.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            const moveSpeed = unit.speed * (window.Canvas.canvas.width / 800);
+
+            if (distance > moveSpeed) {
+              unit.x += (dx / distance) * moveSpeed;
+              const laneCenterY = window.Canvas.canvas.height * 0.333 + unit.lane * (window.Canvas.canvas.height * 0.166);
+              const yDiff = laneCenterY - unit.y;
+              unit.y += (dy / distance) * moveSpeed * 0.3;
+              unit.y += yDiff * 0.05;
+              unit.y = Math.max(0, Math.min(window.Canvas.canvas.height - 30, unit.y));
+            }
+          }
+        }
+        window.Canvas.drawUnit(unit);
+      }
+
+      // Update enemy units
+      for (let i = this.enemyUnits.length - 1; i >= 0; i--) {
+        const unit = this.enemyUnits[i];
+        let closestAlly = null;
+        let closestDistanceSq = Infinity;
+
+        const nearbyAllies = this.getNearbyUnits(unit.x, unit.y, false);
+        nearbyAllies.forEach(({ unit: ally }) => {
+          const dx = ally.x - unit.x;
+          const dy = ally.y - unit.y;
+          const distanceSq = dx * dx + dy * dy;
+          if (distanceSq < closestDistanceSq) {
+            closestDistanceSq = distanceSq;
+            closestAlly = ally;
+          }
+        });
+
+        const attackRangeSq = Math.pow(30 * (window.Canvas.canvas.width / 800), 2);
+        const baseAttackRangeSq = Math.pow(50 * (window.Canvas.canvas.width / 800), 2);
+        const playerBaseX = window.Canvas.canvas.width * 0.075;
+        const playerBaseY = window.Canvas.canvas.height * 0.5;
+
+        if (closestAlly && closestDistanceSq <= attackRangeSq) {
+          if (!unit.lastAttack || Date.now() - unit.lastAttack > 1000) {
+            unit.lastAttack = Date.now();
+            closestAlly.hp = Math.max(0, Math.floor(closestAlly.hp - Math.floor(unit.damage)));
+            window.UI.showDamageNumber(closestAlly.x, closestAlly.y, Math.floor(unit.damage), true);
           }
         } else {
           let targetX, targetY;
-          if (closestEnemy) {
-            targetX = closestEnemy.x;
-            targetY = closestEnemy.y;
+          if (closestAlly) {
+            targetX = closestAlly.x;
+            targetY = closestAlly.y;
           } else {
-            targetX = enemyBaseX;
+            targetX = playerBaseX;
             targetY = window.Canvas.canvas.height * 0.333 + unit.lane * (window.Canvas.canvas.height * 0.166);
           }
 
@@ -386,7 +486,24 @@
           const distance = Math.sqrt(dx * dx + dy * dy);
           const moveSpeed = unit.speed * (window.Canvas.canvas.width / 800);
 
-          if (distance > moveSpeed) {
+          const dxToBase = playerBaseX - unit.x;
+          const dyToBase = playerBaseY - unit.y;
+          const distanceToBaseSq = dxToBase * dxToBase + dyToBase * dyToBase;
+
+          if (distanceToBaseSq <= baseAttackRangeSq && !closestAlly) {
+            if (!unit.lastAttack || Date.now() - unit.lastAttack > 1000) {
+              unit.lastAttack = Date.now();
+              const damageReduction = 1 - (window.GameState.baseDefenseUpgrades * 0.1);
+              const damageDealt = Math.max(1, Math.floor(Math.floor(unit.damage) * damageReduction));
+              window.GameState.baseHealth = Math.max(0, window.GameState.baseHealth - damageDealt);
+              window.UI.showDamageNumber(playerBaseX, playerBaseY, damageDealt, true);
+              console.log(`Enemy ${unit.type.name} attacked base: damage=${damageDealt}, baseHealth=${window.GameState.baseHealth}`);
+              if (window.GameState.baseHealth <= 0 && !window.GameState.gameOver) {
+                window.UI.showGameOverModal("Defeat!");
+                return;
+              }
+            }
+          } else if (distance > moveSpeed) {
             unit.x += (dx / distance) * moveSpeed;
             const laneCenterY = window.Canvas.canvas.height * 0.333 + unit.lane * (window.Canvas.canvas.height * 0.166);
             const yDiff = laneCenterY - unit.y;
@@ -395,102 +512,50 @@
             unit.y = Math.max(0, Math.min(window.Canvas.canvas.height - 30, unit.y));
           }
         }
+        window.Canvas.drawUnit(unit);
       }
-      window.Canvas.drawUnit(unit);
-    }
 
-    for (let i = this.enemyUnits.length - 1; i >= 0; i--) {
-      const unit = this.enemyUnits[i];
-      let closestAlly = null;
-      let closestDistanceSq = Infinity;
-
-      const nearbyAllies = this.getNearbyUnits(unit.x, unit.y, false);
-      nearbyAllies.forEach(({ unit: ally }) => {
-        const dx = ally.x - unit.x;
-        const dy = ally.y - unit.y;
-        const distanceSq = dx * dx + dy * dy;
-        if (distanceSq < closestDistanceSq) {
-          closestDistanceSq = distanceSq;
-          closestAlly = ally;
+      // Handle enemy base destruction
+      if (window.GameState.enemyBaseHealth <= 0 && !window.GameState.gameOver) {
+        console.log(`Enemy base destroyed! Advancing to wave ${window.GameState.wave + 1}`);
+        window.GameState.wave++;
+        window.GameState.waveStarted = false;
+        window.GameState.gold += 20 + Math.floor(window.GameState.wave * 2);
+        window.GameState.diamonds += 5;
+        window.GameState.enemyBaseHealth = 150;
+        this.units = [];
+        this.enemyUnits = [];
+        try {
+          localStorage.setItem('warriorDiamonds', window.GameState.diamonds);
+        } catch (e) {
+          console.error("Failed to save diamonds:", e);
+          window.UI.showFeedback("Warning: Unable to save progress.");
         }
-      });
-
-      const attackRangeSq = Math.pow(30 * (window.Canvas.canvas.width / 800), 2);
-
-      if (closestAlly && closestDistanceSq <= attackRangeSq) {
-        if (!unit.lastAttack || Date.now() - unit.lastAttack > 1000) {
-          unit.lastAttack = Date.now();
-          closestAlly.hp = Math.max(0, Math.floor(closestAlly.hp - Math.floor(unit.damage)));
-          window.UI.showDamageNumber(closestAlly.x, closestAlly.y, Math.floor(unit.damage), true);
-        }
-      } else {
-        let targetX, targetY;
-        if (closestAlly) {
-          targetX = closestAlly.x;
-          targetY = closestAlly.y;
-        } else {
-          targetX = window.Canvas.canvas.width * 0.12;
-          targetY = window.Canvas.canvas.height * 0.333 + unit.lane * (window.Canvas.canvas.height * 0.166);
-        }
-
-        const dx = targetX - unit.x;
-        const dy = targetY - unit.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        const moveSpeed = unit.speed * (window.Canvas.canvas.width / 800);
-
-        if (distance > moveSpeed) {
-          unit.x += (dx / distance) * moveSpeed;
-          const laneCenterY = window.Canvas.canvas.height * 0.333 + unit.lane * (window.Canvas.canvas.height * 0.166);
-          const yDiff = laneCenterY - unit.y;
-          unit.y += (dy / distance) * moveSpeed * 0.3;
-          unit.y += yDiff * 0.05;
-          unit.y = Math.max(0, Math.min(window.Canvas.canvas.height - 30, unit.y));
-        } else if (!closestAlly && unit.x <= targetX) {
-          if (!unit.lastAttack || Date.now() - unit.lastAttack > 1000) {
-            unit.lastAttack = Date.now();
-            const damageReduction = 1 - (window.GameState.baseDefenseUpgrades * 0.1);
-            const damageDealt = Math.max(1, Math.floor(Math.floor(unit.damage) * damageReduction));
-            window.GameState.baseHealth = Math.max(0, window.GameState.baseHealth - damageDealt);
-            window.UI.showDamageNumber(window.Canvas.canvas.width * 0.08, window.Canvas.canvas.height * 0.5, damageDealt, true);
-            if (window.GameState.baseHealth <= 0 && !window.GameState.gameOver) {
-              window.UI.showGameOverModal("Defeat!");
-            }
-          }
+        window.UI.updateFooter();
+        window.UI.drawWaveProgress();
+        if (window.GameState.gameActive) {
+          this.spawnWave(window.GameState.wave);
+          window.UI.showFeedback(`Enemy base destroyed! Wave ${window.GameState.wave} started!`);
         }
       }
-      window.Canvas.drawUnit(unit);
-    }
 
-    if (window.GameState.enemyBaseHealth <= 0 && !window.GameState.gameOver) {
-      console.log(`Enemy base destroyed! Advancing to wave ${window.GameState.wave + 1}`);
-      window.GameState.wave++;
-      window.GameState.waveStarted = false;
-      window.GameState.gold += 20 + Math.floor(window.GameState.wave * 2);
-      window.GameState.diamonds += 5;
-      window.GameState.enemyBaseHealth = 150;
-      this.units = [];
-      this.enemyUnits = [];
-      try {
-        localStorage.setItem('warriorDiamonds', window.GameState.diamonds);
-      } catch (e) {
-        console.error("Failed to save diamonds:", e);
-        window.UI.showFeedback("Warning: Unable to save progress.");
+      // Handle player base destruction
+      if (window.GameState.baseHealth <= 0 && !window.GameState.gameOver) {
+        window.UI.showGameOverModal("Defeat!");
+        return;
       }
-      window.UI.updateFooter();
-      window.UI.drawWaveProgress();
-      if (window.GameState.gameActive) {
-        this.spawnWave(window.GameState.wave);
-        window.UI.showFeedback(`Enemy base destroyed! Wave ${window.GameState.wave} started!`);
+
+      // Always schedule the next frame unless game is over
+      if (!window.GameState.gameOver) {
+        requestAnimationFrame(this.update.bind(this));
       }
-    }
-
-    if (window.GameState.baseHealth <= 0 && !window.GameState.gameOver) {
-      window.UI.showGameOverModal("Defeat!");
-      return;
-    }
-
-    if (!window.GameState.gameOver) {
-      requestAnimationFrame(this.update.bind(this));
+    } catch (e) {
+      console.error("Error in Units.update:", e);
+      window.UI.showFeedback("Game error occurred. Please restart.");
+      // Attempt to keep the game running
+      if (!window.GameState.gameOver) {
+        requestAnimationFrame(this.update.bind(this));
+      }
     }
   };
 
