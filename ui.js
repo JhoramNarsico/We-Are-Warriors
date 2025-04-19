@@ -203,7 +203,7 @@
     damageText.className = "damage-text";
     
     if (isPlayerTakingDamage) {
-      dañageText.classList.add("player-damage");
+      damageText.classList.add("player-damage");
     } else {
       damageText.classList.add("enemy-damage");
     }
