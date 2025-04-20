@@ -155,8 +155,8 @@
         lastAttack: null,
         lastGridKey: null,
         spawnTime: Date.now(),
-        velocityX: 0, // Added for smooth movement
-        velocityY: 0 // Added for smooth movement
+        velocityX: 0,
+        velocityY: 0
       };
       if (unit.x < 0 || unit.x > window.Canvas.canvas.width || unit.y < 0 || unit.y > window.Canvas.canvas.height) {
         console.error(`Barbarian spawn out of bounds: x=${unit.x}, y=${unit.y}`);
@@ -284,8 +284,8 @@
           lastAttack: null,
           lastGridKey: null,
           spawnTime: Date.now(),
-          velocityX: 0, // Added for smooth movement
-          velocityY: 0 // Added for smooth movement
+          velocityX: 0,
+          velocityY: 0
         };
 
         if (newUnit.x < 0 || newUnit.x > window.Canvas.canvas.width || newUnit.y < 0 || newUnit.y > window.Canvas.canvas.height) {
@@ -339,7 +339,7 @@
         const unit = this.units[i];
         if (unit.hp <= 0) {
           unitsToRemove.push(i);
-          window.Canvas.addDeathAnimation(unit); // Add death animation
+          window.Canvas.addDeathAnimation(unit);
           needsGridUpdate = true;
         }
       }
@@ -351,7 +351,7 @@
           rewards.gold += unit.type.reward;
           rewards.diamonds += Math.floor(unit.type.reward / 2);
           enemyUnitsToRemove.push(i);
-          window.Canvas.addDeathAnimation(unit); // Add death animation
+          window.Canvas.addDeathAnimation(unit);
           needsGridUpdate = true;
         }
       }
@@ -435,7 +435,7 @@
         if (closestTargetDistanceSq <= (closestTarget.type.name === "EnemyBase" ? baseAttackRangeSq : attackRangeSq)) {
           if (!unit.lastAttack || Date.now() - unit.lastAttack > 1000) {
             unit.lastAttack = Date.now();
-            window.Canvas.addAttackAnimation(unit, targetX, targetY); // Add attack animation
+            window.Canvas.addAttackAnimation(unit, targetX, targetY);
             if (closestTarget.type.name === "EnemyBase") {
               window.GameState.enemyBaseHealth = Math.max(0, window.GameState.enemyBaseHealth - Math.floor(unit.damage));
               window.UI.showDamageNumber(enemyBaseX, enemyBaseY, Math.floor(unit.damage), false);
@@ -449,18 +449,19 @@
           const dx = targetX - unit.x;
           const dy = targetY - unit.y;
           const distance = Math.sqrt(dx * dx + dy * dy);
-          const moveSpeed = unit.speed * (window.Canvas.canvas.width / 800) * 0.7;
-  
+          const moveSpeed = unit.speed * (window.Canvas.canvas.width / 800) * 0.5; // Reduced from 0.7 to 0.5
+          console.log(`Unit ${unit.type.name} moveSpeed: ${moveSpeed}`); // Debug log
+
           // Smooth movement with velocity
           const targetVelocityX = distance > moveSpeed ? (dx / distance) * moveSpeed : dx;
           const targetVelocityY = distance > moveSpeed ? (dy / distance) * moveSpeed * 0.3 : dy * 0.3;
-          unit.velocityX += (targetVelocityX - unit.velocityX) * 0.1;
-          unit.velocityY += (targetVelocityY - unit.velocityY) * 0.1;
+          unit.velocityX += (targetVelocityX - unit.velocityX) * 0.05; // Reduced from 0.1 to 0.05
+          unit.velocityY += (targetVelocityY - unit.velocityY) * 0.05; // Reduced from 0.1 to 0.05
   
-          // Stronger lane adherence
+          // Stronger lane adherence, but softened
           const laneCenterY = window.Canvas.canvas.height * 0.333 + unit.lane * (window.Canvas.canvas.height * 0.166);
           const yDiff = laneCenterY - unit.y;
-          unit.velocityY += yDiff * 0.1;
+          unit.velocityY += yDiff * 0.05; // Reduced from 0.1 to 0.05
   
           // Update position
           unit.x += unit.velocityX;
@@ -522,7 +523,7 @@
         if (closestTargetDistanceSq <= (closestTarget.type.name === "PlayerBase" ? baseAttackRangeSq : attackRangeSq)) {
           if (!unit.lastAttack || Date.now() - unit.lastAttack > 1000) {
             unit.lastAttack = Date.now();
-            window.Canvas.addAttackAnimation(unit, targetX, targetY); // Add attack animation
+            window.Canvas.addAttackAnimation(unit, targetX, targetY);
             if (closestTarget.type.name === "PlayerBase") {
               const damageReduction = 1 - (window.GameState.baseDefenseUpgrades * 0.1);
               const damageDealt = Math.max(1, Math.floor(Math.floor(unit.damage) * damageReduction));
@@ -543,18 +544,19 @@
           const dx = targetX - unit.x;
           const dy = targetY - unit.y;
           const distance = Math.sqrt(dx * dx + dy * dy);
-          const moveSpeed = unit.speed * (window.Canvas.canvas.width / 800) * 0.7;
-  
+          const moveSpeed = unit.speed * (window.Canvas.canvas.width / 800) * 0.5; // Reduced from 0.7 to 0.5
+          console.log(`Enemy ${unit.type.name} moveSpeed: ${moveSpeed}`); // Debug log
+
           // Smooth movement with velocity
           const targetVelocityX = distance > moveSpeed ? (dx / distance) * moveSpeed : dx;
           const targetVelocityY = distance > moveSpeed ? (dy / distance) * moveSpeed * 0.3 : dy * 0.3;
-          unit.velocityX += (targetVelocityX - unit.velocityX) * 0.1;
-          unit.velocityY += (targetVelocityY - unit.velocityY) * 0.1;
+          unit.velocityX += (targetVelocityX - unit.velocityX) * 0.05; // Reduced from 0.1 to 0.05
+          unit.velocityY += (targetVelocityY - unit.velocityY) * 0.05; // Reduced from 0.1 to 0.05
   
-          // Stronger lane adherence
+          // Stronger lane adherence, but softened
           const laneCenterY = window.Canvas.canvas.height * 0.333 + unit.lane * (window.Canvas.canvas.height * 0.166);
           const yDiff = laneCenterY - unit.y;
-          unit.velocityY += yDiff * 0.1;
+          unit.velocityY += yDiff * 0.05; // Reduced from 0.1 to 0.05
   
           // Update position
           unit.x += unit.velocityX;
@@ -567,7 +569,7 @@
         window.Canvas.drawUnit(unit);
       }
   
-      window.Canvas.renderAnimations(); // Render attack and death animations
+      window.Canvas.renderAnimations();
   
       // Handle enemy base destruction
       if (window.GameState.enemyBaseHealth <= 0 && !window.GameState.gameOver) {
