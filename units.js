@@ -2,10 +2,10 @@
   const Units = {};
 
   Units.BASE_ENEMY_STATS = {
-    BARBARIAN: { health: 15, damage: 3, speed: 1.1, reward: 2 },
-    ARCHER: { health: 8, damage: 6, speed: 1.3, reward: 3 },
-    HORSE: { health: 25, damage: 12, speed: 2.2, reward: 4 },
-    KNIGHT: { health: 40, damage: 8, speed: 1.5, reward: 6 }
+    BARBARIAN: { health: 15, damage: 3, speed: 0.8, reward: 2 }, // Reduced speed from 1.1 to 0.8
+    ARCHER: { health: 8, damage: 6, speed: 1.0, reward: 3 }, // Reduced speed from 1.3 to 1.0
+    HORSE: { health: 25, damage: 12, speed: 1.6, reward: 4 }, // Reduced speed from 2.2 to 1.6
+    KNIGHT: { health: 40, damage: 8, speed: 1.2, reward: 6 } // Reduced speed from 1.5 to 1.2
   };
 
   Units.UNIT_TYPES = {
@@ -154,7 +154,9 @@
         lane: lane,
         lastAttack: null,
         lastGridKey: null,
-        spawnTime: Date.now()
+        spawnTime: Date.now(),
+        velocityX: 0, // Added for smooth movement
+        velocityY: 0 // Added for smooth movement
       };
       if (unit.x < 0 || unit.x > window.Canvas.canvas.width || unit.y < 0 || unit.y > window.Canvas.canvas.height) {
         console.error(`Barbarian spawn out of bounds: x=${unit.x}, y=${unit.y}`);
@@ -176,7 +178,9 @@
         lane: lane,
         lastAttack: null,
         lastGridKey: null,
-        spawnTime: Date.now()
+        spawnTime: Date.now(),
+        velocityX: 0,
+        velocityY: 0
       };
       if (unit.x < 0 || unit.x > window.Canvas.canvas.width || unit.y < 0 || unit.y > window.Canvas.canvas.height) {
         console.error(`Archer spawn out of bounds: x=${unit.x}, y=${unit.y}`);
@@ -198,7 +202,9 @@
         lane: lane,
         lastAttack: null,
         lastGridKey: null,
-        spawnTime: Date.now()
+        spawnTime: Date.now(),
+        velocityX: 0,
+        velocityY: 0
       };
       if (unit.x < 0 || unit.x > window.Canvas.canvas.width || unit.y < 0 || unit.y > window.Canvas.canvas.height) {
         console.error(`Horse spawn out of bounds: x=${unit.x}, y=${unit.y}`);
@@ -220,7 +226,9 @@
         lane: lane,
         lastAttack: null,
         lastGridKey: null,
-        spawnTime: Date.now()
+        spawnTime: Date.now(),
+        velocityX: 0,
+        velocityY: 0
       };
       if (unit.x < 0 || unit.x > window.Canvas.canvas.width || unit.y < 0 || unit.y > window.Canvas.canvas.height) {
         console.error(`Knight spawn out of bounds: x=${unit.x}, y=${unit.y}`);
@@ -275,7 +283,9 @@
           lane: lane,
           lastAttack: null,
           lastGridKey: null,
-          spawnTime: Date.now()
+          spawnTime: Date.now(),
+          velocityX: 0, // Added for smooth movement
+          velocityY: 0 // Added for smooth movement
         };
 
         if (newUnit.x < 0 || newUnit.x > window.Canvas.canvas.width || newUnit.y < 0 || newUnit.y > window.Canvas.canvas.height) {
@@ -417,7 +427,7 @@
             }
           } else {
             let targetX, targetY;
-            if (closestEnemy) {
+            if (closestEnemy && closestDistanceSq < Math.pow(200, 2)) { // Added range limit for enemy targeting
               targetX = closestEnemy.x;
               targetY = closestEnemy.y;
             } else {
@@ -428,16 +438,26 @@
             const dx = targetX - unit.x;
             const dy = targetY - unit.y;
             const distance = Math.sqrt(dx * dx + dy * dy);
-            const moveSpeed = unit.speed * (window.Canvas.canvas.width / 800);
+            const moveSpeed = unit.speed * (window.Canvas.canvas.width / 800) * 0.7; // Reduced move speed by 30%
 
-            if (distance > moveSpeed) {
-              unit.x += (dx / distance) * moveSpeed;
-              const laneCenterY = window.Canvas.canvas.height * 0.333 + unit.lane * (window.Canvas.canvas.height * 0.166);
-              const yDiff = laneCenterY - unit.y;
-              unit.y += (dy / distance) * moveSpeed * 0.3;
-              unit.y += yDiff * 0.05;
-              unit.y = Math.max(0, Math.min(window.Canvas.canvas.height - 30, unit.y));
-            }
+            // Smooth movement with velocity
+            const targetVelocityX = distance > moveSpeed ? (dx / distance) * moveSpeed : dx;
+            const targetVelocityY = distance > moveSpeed ? (dy / distance) * moveSpeed * 0.3 : dy * 0.3;
+            unit.velocityX += (targetVelocityX - unit.velocityX) * 0.1; // Smooth interpolation
+            unit.velocityY += (targetVelocityY - unit.velocityY) * 0.1;
+
+            // Stronger lane adherence
+            const laneCenterY = window.Canvas.canvas.height * 0.333 + unit.lane * (window.Canvas.canvas.height * 0.166);
+            const yDiff = laneCenterY - unit.y;
+            unit.velocityY += yDiff * 0.1; // Increased from 0.05 to 0.1 for tighter lane-keeping
+
+            // Update position
+            unit.x += unit.velocityX;
+            unit.y += unit.velocityY;
+
+            // Clamp position to canvas bounds
+            unit.y = Math.max(0, Math.min(window.Canvas.canvas.height - 30, unit.y));
+            unit.x = Math.max(0, Math.min(window.Canvas.canvas.width - 30, unit.x));
           }
         }
         window.Canvas.drawUnit(unit);
@@ -473,7 +493,7 @@
           }
         } else {
           let targetX, targetY;
-          if (closestAlly) {
+          if (closestAlly && closestDistanceSq < Math.pow(200, 2)) { // Added range limit for ally targeting
             targetX = closestAlly.x;
             targetY = closestAlly.y;
           } else {
@@ -484,7 +504,7 @@
           const dx = targetX - unit.x;
           const dy = targetY - unit.y;
           const distance = Math.sqrt(dx * dx + dy * dy);
-          const moveSpeed = unit.speed * (window.Canvas.canvas.width / 800);
+          const moveSpeed = unit.speed * (window.Canvas.canvas.width / 800) * 0.7; // Reduced move speed by 30%
 
           const dxToBase = playerBaseX - unit.x;
           const dyToBase = playerBaseY - unit.y;
@@ -504,12 +524,24 @@
               }
             }
           } else if (distance > moveSpeed) {
-            unit.x += (dx / distance) * moveSpeed;
+            // Smooth movement with velocity
+            const targetVelocityX = distance > moveSpeed ? (dx / distance) * moveSpeed : dx;
+            const targetVelocityY = distance > moveSpeed ? (dy / distance) * moveSpeed * 0.3 : dy * 0.3;
+            unit.velocityX += (targetVelocityX - unit.velocityX) * 0.1;
+            unit.velocityY += (targetVelocityY - unit.velocityY) * 0.1;
+
+            // Stronger lane adherence
             const laneCenterY = window.Canvas.canvas.height * 0.333 + unit.lane * (window.Canvas.canvas.height * 0.166);
             const yDiff = laneCenterY - unit.y;
-            unit.y += (dy / distance) * moveSpeed * 0.3;
-            unit.y += yDiff * 0.05;
+            unit.velocityY += yDiff * 0.1; // Increased from 0.05 to 0.1
+
+            // Update position
+            unit.x += unit.velocityX;
+            unit.y += unit.velocityY;
+
+            // Clamp position to canvas bounds
             unit.y = Math.max(0, Math.min(window.Canvas.canvas.height - 30, unit.y));
+            unit.x = Math.max(0, Math.min(window.Canvas.canvas.width - 30, unit.x));
           }
         }
         window.Canvas.drawUnit(unit);
@@ -552,7 +584,6 @@
     } catch (e) {
       console.error("Error in Units.update:", e);
       window.UI.showFeedback("Game error occurred. Please restart.");
-      // Attempt to keep the game running
       if (!window.GameState.gameOver) {
         requestAnimationFrame(this.update.bind(this));
       }
