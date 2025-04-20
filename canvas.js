@@ -48,66 +48,93 @@
     const refHeight = 300;
     const scaleX = this.canvas.width / refWidth;
     const scaleY = this.canvas.height / refHeight;
+    const pixelSize = 4 * scaleX; // Pixel size for pixel-art effect
 
     const x = refX * scaleX;
-    const baseWidth = 70 * scaleX;
-    const baseHeight = 130 * scaleY;
-    const healthBarHeight = 10 * scaleY;
-    const healthBarYOffset = 0.13 * this.canvas.height;
-    const mainRectYOffset = 0.175 * this.canvas.height;
+    const baseWidth = 60 * scaleX; // Smaller base for simplicity
+    const baseHeight = 100 * scaleY;
+    const healthBarHeight = 8 * scaleY;
+    const healthBarYOffset = 0.1 * this.canvas.height;
+    const mainRectYOffset = 0.15 * this.canvas.height;
 
-    // Ground texture
-    this.ctx.fillStyle = "rgba(50, 50, 50, 0.5)";
-    this.ctx.fillRect(x - baseWidth / 2 - 10 * scaleX, mainRectYOffset + baseHeight, baseWidth + 20 * scaleX, 10 * scaleY);
-
-    // Base structure (pixelated look)
-    this.ctx.fillStyle = refX === 60 ? "#4a4a4a" : "#5a2e2e";
-    this.ctx.fillRect(x - baseWidth / 2, mainRectYOffset, baseWidth, baseHeight);
-
-    // Pixelated inner part
-    const gradient = this.ctx.createLinearGradient(x - (30 * scaleX), mainRectYOffset, x + (30 * scaleX), mainRectYOffset + baseHeight * 0.8);
-    gradient.addColorStop(0, color);
-    gradient.addColorStop(1, refX === 60 ? "#2a4066" : "#8b1c1c");
-    this.ctx.fillStyle = gradient;
-    this.ctx.fillRect(x - (30 * scaleX), mainRectYOffset, (60 * scaleX), baseHeight * 0.8);
-
-    // Pixelated battlements/spikes
-    this.ctx.fillStyle = "#333";
-    if (refX === 60) {
-      for (let i = -2; i <= 2; i++) {
-        this.ctx.fillRect(x - baseWidth / 2 + i * (15 * scaleX), mainRectYOffset - (10 * scaleY), (10 * scaleX), (10 * scaleY));
-      }
-    } else {
-      for (let i = -2; i <= 2; i++) {
-        this.ctx.beginPath();
-        this.ctx.moveTo(x - baseWidth / 2 + i * (15 * scaleX), mainRectYOffset);
-        this.ctx.lineTo(x - baseWidth / 2 + i * (15 * scaleX) + (5 * scaleX), mainRectYOffset - (10 * scaleY));
-        this.ctx.lineTo(x - baseWidth / 2 + i * (15 * scaleX) + (10 * scaleX), mainRectYOffset);
-        this.ctx.fill();
+    // Ground (simple pixelated dirt)
+    this.ctx.fillStyle = "#523428"; // Flat brown
+    for (let px = -baseWidth / 2 - 10 * scaleX; px < baseWidth / 2 + 10 * scaleX; px += pixelSize) {
+      for (let py = mainRectYOffset + baseHeight; py < mainRectYOffset + baseHeight + 10 * scaleY; py += pixelSize) {
+        this.ctx.fillRect(x + px, py, pixelSize, pixelSize);
       }
     }
 
-    // Health Bar
-    this.ctx.fillStyle = "rgba(0,0,0,0.7)";
-    this.ctx.strokeStyle = "#fff";
+    // Base structure (simple stone block)
+    const isPlayerBase = refX === 60;
+    this.ctx.fillStyle = isPlayerBase ? "#555555" : "#4a2a2a"; // Grey for player, reddish for enemy
+    for (let px = -baseWidth / 2; px < baseWidth / 2; px += pixelSize) {
+      for (let py = mainRectYOffset; py < mainRectYOffset + baseHeight; py += pixelSize) {
+        this.ctx.fillRect(x + px, py, pixelSize, pixelSize);
+      }
+    }
+
+    // Banner (single vertical stripe)
+    this.ctx.fillStyle = isPlayerBase ? "#1e90ff" : "#b22222"; // Blue or red
+    for (let px = -10 * scaleX; px < 10 * scaleX; px += pixelSize) {
+      for (let py = 10 * scaleY; py < baseHeight - 10 * scaleY; py += pixelSize) {
+        this.ctx.fillRect(x + px, mainRectYOffset + py, pixelSize, pixelSize);
+      }
+    }
+
+    // Battlements (minimal)
+    this.ctx.fillStyle = "#333333";
+    if (isPlayerBase) {
+      // Player: Two blocky turrets
+      for (let i = -1; i <= 1; i += 2) {
+        for (let px = i * 15 * scaleX; px < i * 15 * scaleX + 10 * scaleX; px += pixelSize) {
+          for (let py = -10 * scaleY; py < 0; py += pixelSize) {
+            this.ctx.fillRect(x - baseWidth / 2 + px, mainRectYOffset + py, pixelSize, pixelSize);
+          }
+        }
+      }
+    } else {
+      // Enemy: Two blocky spikes
+      for (let i = -1; i <= 1; i += 2) {
+        const baseX = x - baseWidth / 2 + i * 15 * scaleX;
+        // Bottom row
+        for (let px = 0; px < 10 * scaleX; px += pixelSize) {
+          this.ctx.fillRect(baseX + px, mainRectYOffset, pixelSize, pixelSize);
+        }
+        // Top pixel
+        this.ctx.fillRect(baseX + 5 * scaleX, mainRectYOffset - 10 * scaleY, pixelSize, pixelSize);
+      }
+    }
+
+    // Health Bar (simple pixelated)
+    this.ctx.fillStyle = "#000000";
+    for (let px = -baseWidth / 2; px < baseWidth / 2; px += pixelSize) {
+      for (let py = 0; py < healthBarHeight; py += pixelSize) {
+        this.ctx.fillRect(x + px, healthBarYOffset + py, pixelSize, pixelSize);
+      }
+    }
+    this.ctx.strokeStyle = "#ffffff"; // White border for simplicity
     this.ctx.lineWidth = 1 * scaleX;
-    this.ctx.fillRect(x - baseWidth / 2, healthBarYOffset, baseWidth, healthBarHeight);
     this.ctx.strokeRect(x - baseWidth / 2, healthBarYOffset, baseWidth, healthBarHeight);
 
     const healthPercentage = Math.max(0, currentHealth / maxHealth);
-    this.ctx.fillStyle = healthPercentage > 0.5 ? "#28a745" : healthPercentage > 0.2 ? "#ffd700" : "#dc3545";
-    this.ctx.fillRect(x - baseWidth / 2, healthBarYOffset, baseWidth * healthPercentage, healthBarHeight);
+    this.ctx.fillStyle = healthPercentage > 0.5 ? "#32cd32" : healthPercentage > 0.2 ? "#ffd700" : "#dc143c";
+    for (let px = -baseWidth / 2; px < -baseWidth / 2 + baseWidth * healthPercentage; px += pixelSize) {
+      for (let py = 0; py < healthBarHeight; py += pixelSize) {
+        this.ctx.fillRect(x + px, healthBarYOffset + py, pixelSize, pixelSize);
+      }
+    }
 
-    // Text Info
+    // Text Info (HP and Defense)
     this.ctx.fillStyle = "#f5f5f5";
     this.ctx.font = `${Math.max(12, 16 * scaleX)}px 'VT323', 'Press Start 2P', 'Courier New', monospace`;
-    this.ctx.textAlign = "left";
-    const hpText = `HP: ${Math.max(0, Math.floor(currentHealth))} / ${maxHealth}`;
-    this.ctx.fillText(hpText, x - baseWidth / 2, healthBarYOffset - (5 * scaleY));
+    this.ctx.textAlign = "center";
+    const hpText = `${Math.max(0, Math.floor(currentHealth))}/${maxHealth}`;
+    this.ctx.fillText(hpText, x, healthBarYOffset - (5 * scaleY)); // Moved closer to health bar
 
-    if (refX === 60 && defenseLevel > 0) {
-      const defText = `🛡️ DEF: ${defenseLevel * 10}%`;
-      this.ctx.fillText(defText, x - baseWidth / 2, healthBarYOffset - (20 * scaleY));
+    if (isPlayerBase && defenseLevel > 0) {
+      const defText = `🛡️ ${defenseLevel * 10}%`;
+      this.ctx.fillText(defText, x, healthBarYOffset - (20 * scaleY)); // Adjusted position to prevent clipping
     }
   };
 
