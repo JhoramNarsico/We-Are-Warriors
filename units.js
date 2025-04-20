@@ -316,9 +316,9 @@
         requestAnimationFrame(this.update.bind(this));
         return;
       }
-
+  
       let needsGridUpdate = false;
-
+  
       // Check for grid updates
       this.units.forEach(unit => {
         const currentKey = this.getGridKey(unit.x, unit.y);
@@ -328,21 +328,22 @@
         const currentKey = this.getGridKey(unit.x, unit.y);
         if (unit.lastGridKey !== currentKey) needsGridUpdate = true;
       });
-
+  
       // Collect rewards and units to remove
       const rewards = { gold: 0, diamonds: 0 };
       const unitsToRemove = [];
       const enemyUnitsToRemove = [];
-
+  
       // Remove dead ally units
       for (let i = this.units.length - 1; i >= 0; i--) {
         const unit = this.units[i];
         if (unit.hp <= 0) {
           unitsToRemove.push(i);
+          window.Canvas.addDeathAnimation(unit); // Add death animation
           needsGridUpdate = true;
         }
       }
-
+  
       // Remove dead enemy units and collect rewards
       for (let i = this.enemyUnits.length - 1; i >= 0; i--) {
         const unit = this.enemyUnits[i];
@@ -350,11 +351,12 @@
           rewards.gold += unit.type.reward;
           rewards.diamonds += Math.floor(unit.type.reward / 2);
           enemyUnitsToRemove.push(i);
+          window.Canvas.addDeathAnimation(unit); // Add death animation
           needsGridUpdate = true;
         }
       }
-
-      // Apply rewards and remove units outside the loop
+  
+      // Apply rewards and remove units
       if (rewards.gold > 0 || rewards.diamonds > 0) {
         window.GameState.gold += rewards.gold;
         window.GameState.diamonds += rewards.diamonds;
@@ -366,11 +368,10 @@
         }
         window.UI.updateFooter();
       }
-
-      // Remove units
+  
       unitsToRemove.forEach(i => this.units.splice(i, 1));
       enemyUnitsToRemove.forEach(i => this.enemyUnits.splice(i, 1));
-
+  
       if (needsGridUpdate) {
         try {
           this.updateGrid();
@@ -379,19 +380,23 @@
           window.UI.showFeedback("Error updating unit positions!");
         }
       }
-
+  
       window.Canvas.ctx.clearRect(0, 0, window.Canvas.canvas.width, window.Canvas.canvas.height);
-
+  
       const playerMaxHealth = 150 + (window.GameState.baseHealthUpgrades * 25);
       window.Canvas.drawBase(60, "#3b5998", window.GameState.baseHealth, playerMaxHealth, window.GameState.baseDefenseUpgrades);
       window.Canvas.drawBase(750, "#dc3545", window.GameState.enemyBaseHealth, 150, 0);
-
+  
       // Update ally units
       for (let i = this.units.length - 1; i >= 0; i--) {
         const unit = this.units[i];
         let closestEnemy = null;
         let closestDistanceSq = Infinity;
-
+        let closestTarget = null;
+        let closestTargetDistanceSq = Infinity;
+        let targetX, targetY;
+  
+        // Find nearest enemy unit
         const nearbyEnemies = this.getNearbyUnits(unit.x, unit.y, true);
         nearbyEnemies.forEach(({ unit: enemy }) => {
           const dx = enemy.x - unit.x;
@@ -402,73 +407,83 @@
             closestEnemy = enemy;
           }
         });
-
-        const attackRangeSq = Math.pow(30 * (window.Canvas.canvas.width / 800), 2);
-        const baseAttackRangeSq = Math.pow(50 * (window.Canvas.canvas.width / 800), 2);
+  
+        // Check distance to enemy base
         const enemyBaseX = window.Canvas.canvas.width * 0.9375;
         const enemyBaseY = window.Canvas.canvas.height * 0.5;
-
-        if (closestEnemy && closestDistanceSq <= attackRangeSq) {
+        const dxToBase = enemyBaseX - unit.x;
+        const dyToBase = enemyBaseY - unit.y;
+        const distanceToBaseSq = dxToBase * dxToBase + dyToBase * dyToBase;
+  
+        // Determine closest target (enemy unit or base)
+        if (closestEnemy && closestDistanceSq < distanceToBaseSq) {
+          closestTarget = closestEnemy;
+          closestTargetDistanceSq = closestDistanceSq;
+          targetX = closestEnemy.x;
+          targetY = closestEnemy.y;
+        } else {
+          closestTarget = { x: enemyBaseX, y: enemyBaseY, type: { name: "EnemyBase" } };
+          closestTargetDistanceSq = distanceToBaseSq;
+          targetX = enemyBaseX;
+          targetY = enemyBaseY;
+        }
+  
+        const attackRangeSq = Math.pow(30 * (window.Canvas.canvas.width / 800), 2);
+        const baseAttackRangeSq = Math.pow(50 * (window.Canvas.canvas.width / 800), 2);
+  
+        // Attack logic
+        if (closestTargetDistanceSq <= (closestTarget.type.name === "EnemyBase" ? baseAttackRangeSq : attackRangeSq)) {
           if (!unit.lastAttack || Date.now() - unit.lastAttack > 1000) {
             unit.lastAttack = Date.now();
-            closestEnemy.hp = Math.max(0, Math.floor(closestEnemy.hp - Math.floor(unit.damage)));
-            window.UI.showDamageNumber(closestEnemy.x, closestEnemy.y, Math.floor(unit.damage), false);
-          }
-        } else {
-          const dxToBase = enemyBaseX - unit.x;
-          const dyToBase = enemyBaseY - unit.y;
-          const distanceToBaseSq = dxToBase * dxToBase + dyToBase * dyToBase;
-
-          if (distanceToBaseSq <= baseAttackRangeSq) {
-            if (!unit.lastAttack || Date.now() - unit.lastAttack > 1000) {
-              unit.lastAttack = Date.now();
+            window.Canvas.addAttackAnimation(unit, targetX, targetY); // Add attack animation
+            if (closestTarget.type.name === "EnemyBase") {
               window.GameState.enemyBaseHealth = Math.max(0, window.GameState.enemyBaseHealth - Math.floor(unit.damage));
               window.UI.showDamageNumber(enemyBaseX, enemyBaseY, Math.floor(unit.damage), false);
-            }
-          } else {
-            let targetX, targetY;
-            if (closestEnemy && closestDistanceSq < Math.pow(200, 2)) { // Added range limit for enemy targeting
-              targetX = closestEnemy.x;
-              targetY = closestEnemy.y;
             } else {
-              targetX = enemyBaseX;
-              targetY = window.Canvas.canvas.height * 0.333 + unit.lane * (window.Canvas.canvas.height * 0.166);
+              closestTarget.hp = Math.max(0, Math.floor(closestTarget.hp - Math.floor(unit.damage)));
+              window.UI.showDamageNumber(closestTarget.x, closestTarget.y, Math.floor(unit.damage), false);
             }
-
-            const dx = targetX - unit.x;
-            const dy = targetY - unit.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            const moveSpeed = unit.speed * (window.Canvas.canvas.width / 800) * 0.7; // Reduced move speed by 30%
-
-            // Smooth movement with velocity
-            const targetVelocityX = distance > moveSpeed ? (dx / distance) * moveSpeed : dx;
-            const targetVelocityY = distance > moveSpeed ? (dy / distance) * moveSpeed * 0.3 : dy * 0.3;
-            unit.velocityX += (targetVelocityX - unit.velocityX) * 0.1; // Smooth interpolation
-            unit.velocityY += (targetVelocityY - unit.velocityY) * 0.1;
-
-            // Stronger lane adherence
-            const laneCenterY = window.Canvas.canvas.height * 0.333 + unit.lane * (window.Canvas.canvas.height * 0.166);
-            const yDiff = laneCenterY - unit.y;
-            unit.velocityY += yDiff * 0.1; // Increased from 0.05 to 0.1 for tighter lane-keeping
-
-            // Update position
-            unit.x += unit.velocityX;
-            unit.y += unit.velocityY;
-
-            // Clamp position to canvas bounds
-            unit.y = Math.max(0, Math.min(window.Canvas.canvas.height - 30, unit.y));
-            unit.x = Math.max(0, Math.min(window.Canvas.canvas.width - 30, unit.x));
           }
+        } else {
+          // Move toward the closest target
+          const dx = targetX - unit.x;
+          const dy = targetY - unit.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          const moveSpeed = unit.speed * (window.Canvas.canvas.width / 800) * 0.7;
+  
+          // Smooth movement with velocity
+          const targetVelocityX = distance > moveSpeed ? (dx / distance) * moveSpeed : dx;
+          const targetVelocityY = distance > moveSpeed ? (dy / distance) * moveSpeed * 0.3 : dy * 0.3;
+          unit.velocityX += (targetVelocityX - unit.velocityX) * 0.1;
+          unit.velocityY += (targetVelocityY - unit.velocityY) * 0.1;
+  
+          // Stronger lane adherence
+          const laneCenterY = window.Canvas.canvas.height * 0.333 + unit.lane * (window.Canvas.canvas.height * 0.166);
+          const yDiff = laneCenterY - unit.y;
+          unit.velocityY += yDiff * 0.1;
+  
+          // Update position
+          unit.x += unit.velocityX;
+          unit.y += unit.velocityY;
+  
+          // Clamp position to canvas bounds
+          unit.y = Math.max(0, Math.min(window.Canvas.canvas.height - 30, unit.y));
+          unit.x = Math.max(0, Math.min(window.Canvas.canvas.width - 30, unit.x));
         }
+  
         window.Canvas.drawUnit(unit);
       }
-
+  
       // Update enemy units
       for (let i = this.enemyUnits.length - 1; i >= 0; i--) {
         const unit = this.enemyUnits[i];
         let closestAlly = null;
         let closestDistanceSq = Infinity;
-
+        let closestTarget = null;
+        let closestTargetDistanceSq = Infinity;
+        let targetX, targetY;
+  
+        // Find nearest ally unit
         const nearbyAllies = this.getNearbyUnits(unit.x, unit.y, false);
         nearbyAllies.forEach(({ unit: ally }) => {
           const dx = ally.x - unit.x;
@@ -479,40 +494,36 @@
             closestAlly = ally;
           }
         });
-
-        const attackRangeSq = Math.pow(30 * (window.Canvas.canvas.width / 800), 2);
-        const baseAttackRangeSq = Math.pow(50 * (window.Canvas.canvas.width / 800), 2);
+  
+        // Check distance to player base
         const playerBaseX = window.Canvas.canvas.width * 0.075;
         const playerBaseY = window.Canvas.canvas.height * 0.5;
-
-        if (closestAlly && closestDistanceSq <= attackRangeSq) {
+        const dxToBase = playerBaseX - unit.x;
+        const dyToBase = playerBaseY - unit.y;
+        const distanceToBaseSq = dxToBase * dxToBase + dyToBase * dyToBase;
+  
+        // Determine closest target (ally unit or player base)
+        if (closestAlly && closestDistanceSq < distanceToBaseSq) {
+          closestTarget = closestAlly;
+          closestTargetDistanceSq = closestDistanceSq;
+          targetX = closestAlly.x;
+          targetY = closestAlly.y;
+        } else {
+          closestTarget = { x: playerBaseX, y: playerBaseY, type: { name: "PlayerBase" } };
+          closestTargetDistanceSq = distanceToBaseSq;
+          targetX = playerBaseX;
+          targetY = playerBaseY;
+        }
+  
+        const attackRangeSq = Math.pow(30 * (window.Canvas.canvas.width / 800), 2);
+        const baseAttackRangeSq = Math.pow(50 * (window.Canvas.canvas.width / 800), 2);
+  
+        // Attack logic
+        if (closestTargetDistanceSq <= (closestTarget.type.name === "PlayerBase" ? baseAttackRangeSq : attackRangeSq)) {
           if (!unit.lastAttack || Date.now() - unit.lastAttack > 1000) {
             unit.lastAttack = Date.now();
-            closestAlly.hp = Math.max(0, Math.floor(closestAlly.hp - Math.floor(unit.damage)));
-            window.UI.showDamageNumber(closestAlly.x, closestAlly.y, Math.floor(unit.damage), true);
-          }
-        } else {
-          let targetX, targetY;
-          if (closestAlly && closestDistanceSq < Math.pow(200, 2)) { // Added range limit for ally targeting
-            targetX = closestAlly.x;
-            targetY = closestAlly.y;
-          } else {
-            targetX = playerBaseX;
-            targetY = window.Canvas.canvas.height * 0.333 + unit.lane * (window.Canvas.canvas.height * 0.166);
-          }
-
-          const dx = targetX - unit.x;
-          const dy = targetY - unit.y;
-          const distance = Math.sqrt(dx * dx + dy * dy);
-          const moveSpeed = unit.speed * (window.Canvas.canvas.width / 800) * 0.7; // Reduced move speed by 30%
-
-          const dxToBase = playerBaseX - unit.x;
-          const dyToBase = playerBaseY - unit.y;
-          const distanceToBaseSq = dxToBase * dxToBase + dyToBase * dyToBase;
-
-          if (distanceToBaseSq <= baseAttackRangeSq && !closestAlly) {
-            if (!unit.lastAttack || Date.now() - unit.lastAttack > 1000) {
-              unit.lastAttack = Date.now();
+            window.Canvas.addAttackAnimation(unit, targetX, targetY); // Add attack animation
+            if (closestTarget.type.name === "PlayerBase") {
               const damageReduction = 1 - (window.GameState.baseDefenseUpgrades * 0.1);
               const damageDealt = Math.max(1, Math.floor(Math.floor(unit.damage) * damageReduction));
               window.GameState.baseHealth = Math.max(0, window.GameState.baseHealth - damageDealt);
@@ -522,31 +533,42 @@
                 window.UI.showGameOverModal("Defeat!");
                 return;
               }
+            } else {
+              closestTarget.hp = Math.max(0, Math.floor(closestTarget.hp - Math.floor(unit.damage)));
+              window.UI.showDamageNumber(closestTarget.x, closestTarget.y, Math.floor(unit.damage), true);
             }
-          } else if (distance > moveSpeed) {
-            // Smooth movement with velocity
-            const targetVelocityX = distance > moveSpeed ? (dx / distance) * moveSpeed : dx;
-            const targetVelocityY = distance > moveSpeed ? (dy / distance) * moveSpeed * 0.3 : dy * 0.3;
-            unit.velocityX += (targetVelocityX - unit.velocityX) * 0.1;
-            unit.velocityY += (targetVelocityY - unit.velocityY) * 0.1;
-
-            // Stronger lane adherence
-            const laneCenterY = window.Canvas.canvas.height * 0.333 + unit.lane * (window.Canvas.canvas.height * 0.166);
-            const yDiff = laneCenterY - unit.y;
-            unit.velocityY += yDiff * 0.1; // Increased from 0.05 to 0.1
-
-            // Update position
-            unit.x += unit.velocityX;
-            unit.y += unit.velocityY;
-
-            // Clamp position to canvas bounds
-            unit.y = Math.max(0, Math.min(window.Canvas.canvas.height - 30, unit.y));
-            unit.x = Math.max(0, Math.min(window.Canvas.canvas.width - 30, unit.x));
           }
+        } else {
+          // Move toward the closest target
+          const dx = targetX - unit.x;
+          const dy = targetY - unit.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          const moveSpeed = unit.speed * (window.Canvas.canvas.width / 800) * 0.7;
+  
+          // Smooth movement with velocity
+          const targetVelocityX = distance > moveSpeed ? (dx / distance) * moveSpeed : dx;
+          const targetVelocityY = distance > moveSpeed ? (dy / distance) * moveSpeed * 0.3 : dy * 0.3;
+          unit.velocityX += (targetVelocityX - unit.velocityX) * 0.1;
+          unit.velocityY += (targetVelocityY - unit.velocityY) * 0.1;
+  
+          // Stronger lane adherence
+          const laneCenterY = window.Canvas.canvas.height * 0.333 + unit.lane * (window.Canvas.canvas.height * 0.166);
+          const yDiff = laneCenterY - unit.y;
+          unit.velocityY += yDiff * 0.1;
+  
+          // Update position
+          unit.x += unit.velocityX;
+          unit.y += unit.velocityY;
+  
+          // Clamp position to canvas bounds
+          unit.y = Math.max(0, Math.min(window.Canvas.canvas.height - 30, unit.y));
+          unit.x = Math.max(0, Math.min(window.Canvas.canvas.width - 30, unit.x));
         }
         window.Canvas.drawUnit(unit);
       }
-
+  
+      window.Canvas.renderAnimations(); // Render attack and death animations
+  
       // Handle enemy base destruction
       if (window.GameState.enemyBaseHealth <= 0 && !window.GameState.gameOver) {
         console.log(`Enemy base destroyed! Advancing to wave ${window.GameState.wave + 1}`);
@@ -570,13 +592,13 @@
           window.UI.showFeedback(`Enemy base destroyed! Wave ${window.GameState.wave} started!`);
         }
       }
-
+  
       // Handle player base destruction
       if (window.GameState.baseHealth <= 0 && !window.GameState.gameOver) {
         window.UI.showGameOverModal("Defeat!");
         return;
       }
-
+  
       // Always schedule the next frame unless game is over
       if (!window.GameState.gameOver) {
         requestAnimationFrame(this.update.bind(this));

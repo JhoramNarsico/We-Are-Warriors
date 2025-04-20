@@ -5,9 +5,13 @@
   Canvas.canvas = document.getElementById("gameCanvas");
   Canvas.ctx = Canvas.canvas.getContext("2d");
 
+  // Animation Arrays
+  Canvas.attackAnimations = [];
+  Canvas.deathAnimations = [];
+
   Canvas.resizeCanvas = function () {
-    const maxWidth = window.innerWidth * 0.9; // Increased from 0.85 for larger container
-    const maxHeight = window.innerHeight * 0.5; // Increased from 0.45
+    const maxWidth = window.innerWidth * 0.9;
+    const maxHeight = window.innerHeight * 0.5;
     const aspectRatio = 800 / 300;
 
     let newWidth = maxHeight * aspectRatio;
@@ -18,8 +22,8 @@
       newHeight = newWidth / aspectRatio;
     }
 
-    this.canvas.width = Math.max(280, Math.floor(newWidth)); // Increased min width from 240
-    this.canvas.height = Math.max(105, Math.floor(newHeight)); // Increased min height from 90
+    this.canvas.width = Math.max(280, Math.floor(newWidth));
+    this.canvas.height = Math.max(105, Math.floor(newHeight));
     console.log(`Canvas resized to width:${this.canvas.width}, height:${this.canvas.height}`);
   };
 
@@ -105,6 +109,125 @@
       const defText = `🛡️ DEF: ${defenseLevel * 10}%`;
       this.ctx.fillText(defText, x - baseWidth / 2, healthBarYOffset - (20 * scaleY));
     }
+  };
+
+  // Add Attack Animation
+  Canvas.addAttackAnimation = function (unit, targetX, targetY) {
+    const scaleX = this.canvas.width / 800;
+    const scaleY = this.canvas.height / 300;
+    this.attackAnimations.push({
+      unit,
+      targetX,
+      targetY,
+      startTime: Date.now(),
+      duration: 200, // Animation lasts 200ms
+      type: unit.type.name.toUpperCase()
+    });
+  };
+
+  // Add Death Animation
+  Canvas.addDeathAnimation = function (unit) {
+    const scaleX = this.canvas.width / 800;
+    const scaleY = this.canvas.height / 300;
+    this.deathAnimations.push({
+      x: unit.x,
+      y: unit.y,
+      startTime: Date.now(),
+      duration: 500, // Animation lasts 500ms
+      type: unit.type.name.toUpperCase()
+    });
+  };
+
+  // Draw Attack Animations
+  Canvas.drawAttackAnimations = function () {
+    const scaleX = this.canvas.width / 800;
+    const scaleY = this.canvas.height / 300;
+    const now = Date.now();
+
+    this.attackAnimations = this.attackAnimations.filter(anim => now - anim.startTime < anim.duration);
+
+    this.attackAnimations.forEach(anim => {
+      const progress = (now - anim.startTime) / anim.duration;
+      const opacity = 1 - progress;
+
+      this.ctx.save();
+      this.ctx.globalAlpha = opacity;
+
+      switch (anim.type) {
+        case "BARBARIAN":
+        case "KNIGHT":
+          // Sword slash: Draw a diagonal white line
+          this.ctx.strokeStyle = "#fff";
+          this.ctx.lineWidth = 2 * scaleX;
+          this.ctx.beginPath();
+          this.ctx.moveTo(anim.unit.x + 10 * scaleX * (1 - progress), anim.unit.y - 5 * scaleY);
+          this.ctx.lineTo(anim.unit.x + 20 * scaleX * progress, anim.unit.y + 5 * scaleY);
+          this.ctx.stroke();
+          break;
+        case "ARCHER":
+          // Arrow: Draw a line from unit to target
+          this.ctx.strokeStyle = "#ccc";
+          this.ctx.lineWidth = 1 * scaleX;
+          this.ctx.beginPath();
+          this.ctx.moveTo(anim.unit.x + 10 * scaleX, anim.unit.y);
+          this.ctx.lineTo(anim.targetX, anim.targetY);
+          this.ctx.stroke();
+          // Arrowhead
+          this.ctx.fillStyle = "#ccc";
+          this.ctx.beginPath();
+          this.ctx.moveTo(anim.targetX, anim.targetY);
+          this.ctx.lineTo(anim.targetX - 3 * scaleX, anim.targetY - 3 * scaleY);
+          this.ctx.lineTo(anim.targetX - 3 * scaleX, anim.targetY + 3 * scaleY);
+          this.ctx.fill();
+          break;
+        case "HORSE":
+          // Dust trail: Draw small particles behind the horse
+          this.ctx.fillStyle = "rgba(200, 200, 200, 0.5)";
+          for (let i = 0; i < 3; i++) {
+            this.ctx.fillRect(
+              anim.unit.x - 10 * scaleX * progress + (Math.random() - 0.5) * 5 * scaleX,
+              anim.unit.y + 10 * scaleY + (Math.random() - 0.5) * 5 * scaleY,
+              2 * scaleX,
+              2 * scaleY
+            );
+          }
+          break;
+      }
+
+      this.ctx.restore();
+    });
+  };
+
+  // Draw Death Animations
+  Canvas.drawDeathAnimations = function () {
+    const scaleX = this.canvas.width / 800;
+    const scaleY = this.canvas.height / 300;
+    const now = Date.now();
+
+    this.deathAnimations = this.deathAnimations.filter(anim => now - anim.startTime < anim.duration);
+
+    this.deathAnimations.forEach(anim => {
+      const progress = (now - anim.startTime) / anim.duration;
+      const opacity = 1 - progress;
+
+      this.ctx.save();
+      this.ctx.globalAlpha = opacity;
+
+      // Particle burst: Draw small colored particles
+      this.ctx.fillStyle = anim.type === "HORSE" ? "#dc3545" : anim.type === "KNIGHT" ? "#ffd700" : "#fff";
+      for (let i = 0; i < 5; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const distance = progress * 10 * scaleX;
+        this.ctx.fillRect(
+          anim.x + Math.cos(angle) * distance,
+          anim.y + Math.sin(angle) * distance,
+          2 * scaleX,
+          2 * scaleY
+        );
+      }
+
+      this.ctx.restore();
+    });
   };
 
   Canvas.drawUnit = function (unit) {
@@ -194,6 +317,12 @@
     this.ctx.fillText(`${Math.floor(unit.hp)}/${Math.floor(maxHealth)}`, unit.x + size, unit.y + hpTextYOffset);
 
     this.ctx.textAlign = "left";
+  };
+
+  // Render All Animations
+  Canvas.renderAnimations = function () {
+    this.drawAttackAnimations();
+    this.drawDeathAnimations();
   };
 
   // Expose Canvas
