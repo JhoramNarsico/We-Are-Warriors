@@ -175,22 +175,6 @@
       });
     }
 
-    const loadGameButton = document.getElementById("loadGameButton");
-    if (loadGameButton) {
-      loadGameButton.addEventListener("click", () => {
-        window.GameState.initGame(true);
-        window.UI.pauseMenu.style.display = "none";
-        window.UI.gameOverModal.style.display = "none";
-        window.UI.updateButtonStates();
-        window.UI.updateFooter();
-        window.UI.updateUnitSelectionUI();
-        window.UI.updateUnitInfoPanel();
-        window.UI.updateUpgradesDisplay();
-        window.Shop.updateShop();
-        window.UI.drawWaveProgress();
-      });
-    }
-
     const newGameButton = document.getElementById("newGameButton");
     if (newGameButton) {
       newGameButton.addEventListener("click", () => {
