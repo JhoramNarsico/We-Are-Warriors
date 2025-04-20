@@ -122,9 +122,10 @@
     if (toggleShopButton) {
       toggleShopButton.addEventListener("click", () => {
         const shop = document.getElementById("shop");
-        shop.style.display = shop.style.display === "none" ? "block" : "none";
-        toggleShopButton.textContent = shop.style.display === "none" ? "Show Shop" : "Hide Shop";
-        window.UI.showFeedback(shop.style.display === "none" ? "Shop hidden" : "Shop shown");
+        const willShow = shop.style.display === "none"; // Check if shop is currently hidden
+        shop.style.display = willShow ? "block" : "none"; // Toggle display
+        toggleShopButton.textContent = willShow ? "Hide Shop" : "Show Shop"; // Update button text
+        window.UI.showFeedback(willShow ? "Shop shown" : "Shop hidden"); // Feedback based on action
       });
     }
 

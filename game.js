@@ -26,6 +26,10 @@
 
     // 5. Initialize Shop
     if (window.Shop && window.Shop.updateShop) {
+      const shop = document.getElementById("shop");
+      shop.style.display = "none"; // Explicitly hide shop on init
+      const toggleShopButton = document.getElementById("toggleShopButton");
+      toggleShopButton.textContent = "Show Shop"; // Ensure button text is correct
       window.Shop.updateShop();
     } else {
       console.error("Shop module not loaded or updateShop function missing!");
