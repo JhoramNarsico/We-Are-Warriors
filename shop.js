@@ -1,6 +1,12 @@
 (function () {
   const Shop = {};
 
+  // Cache DOM elements
+  const DOM = {
+    shopElement: null,
+    toggleShopButton: null
+  };
+
   // Shop Items Definition
   Shop.SHOP_ITEMS = {
     GOLD_PRODUCTION: {
@@ -8,40 +14,15 @@
       description: "Increase gold gain rate",
       getPrice: () => 10 + (window.GameState.goldProductionUpgrades * 15),
       apply: function() {
-        if (window.GameState.diamonds >= this.getPrice()) {
-          window.GameState.diamonds -= this.getPrice();
-          window.GameState.goldProductionUpgrades++;
-          window.GameState.goldProductionRate = Math.max(300, 800 - (window.GameState.goldProductionUpgrades * 50));
-          
-          // Clear any existing interval
-          if (window.GameState.goldInterval) {
-            clearInterval(window.GameState.goldInterval);
-            window.GameState.goldInterval = null;
-          }
-          
-          // Start new interval
-          window.GameState.goldInterval = setInterval(() => {
-            if (window.GameState.gameActive && !window.GameState.gameOver && !window.GameState.gamePaused) {
-              window.GameState.gold += 1 + Math.floor(window.GameState.wave / 5);
-              window.UI.updateFooter();
-            }
-          }, window.GameState.goldProductionRate);
+        const price = this.getPrice();
+        if (!Shop.validatePurchase(price)) return;
 
-          try {
-            localStorage.setItem('warriorDiamonds', window.GameState.diamonds);
-            localStorage.setItem('warriorGoldProdUpgrades', window.GameState.goldProductionUpgrades);
-          } catch (e) {
-            console.error("Failed to save gold production upgrades:", e);
-            window.UI.showFeedback("Storage error saving upgrade.");
-          }
+        window.GameState.diamonds -= price;
+        window.GameState.goldProductionUpgrades++;
+        Shop.updateGoldProduction();
 
-          Shop.updateShop();
-          window.UI.updateFooter();
-          window.UI.showFeedback("Gold production upgraded!");
-          window.UI.updateUpgradesDisplay();
-        } else {
-          window.UI.showFeedback("Not enough diamonds!");
-        }
+        Shop.savePurchase('warriorGoldProdUpgrades', window.GameState.goldProductionUpgrades);
+        Shop.finalizePurchase("Gold production upgraded!");
       }
     },
     BASE_HEALTH: {
@@ -49,29 +30,18 @@
       description: "Increase base max health by 25",
       getPrice: () => 15 + (window.GameState.baseHealthUpgrades * 20),
       apply: function() {
-        if (window.GameState.diamonds >= this.getPrice()) {
-          window.GameState.diamonds -= this.getPrice();
-          window.GameState.baseHealthUpgrades++;
-          const oldMaxHealth = 150 + ((window.GameState.baseHealthUpgrades - 1) * 25);
-          const healthPercentage = window.GameState.baseHealth / oldMaxHealth;
-          const newMaxHealth = 150 + (window.GameState.baseHealthUpgrades * 25);
-          window.GameState.baseHealth = Math.round(newMaxHealth * healthPercentage);
+        const price = this.getPrice();
+        if (!Shop.validatePurchase(price)) return;
 
-          try {
-            localStorage.setItem('warriorDiamonds', window.GameState.diamonds);
-            localStorage.setItem('warriorBaseHealthUpgrades', window.GameState.baseHealthUpgrades);
-          } catch (e) {
-            console.error("Failed to save base health upgrades:", e);
-            window.UI.showFeedback("Storage error saving upgrade.");
-          }
+        window.GameState.diamonds -= price;
+        window.GameState.baseHealthUpgrades++;
+        const oldMaxHealth = 150 + ((window.GameState.baseHealthUpgrades - 1) * 25);
+        const healthPercentage = window.GameState.baseHealth / oldMaxHealth;
+        const newMaxHealth = 150 + (window.GameState.baseHealthUpgrades * 25);
+        window.GameState.baseHealth = Math.round(newMaxHealth * healthPercentage);
 
-          window.UI.updateFooter();
-          Shop.updateShop();
-          window.UI.showFeedback("Base health increased!");
-          window.UI.updateUpgradesDisplay();
-        } else {
-          window.UI.showFeedback("Not enough diamonds!");
-        }
+        Shop.savePurchase('warriorBaseHealthUpgrades', window.GameState.baseHealthUpgrades);
+        Shop.finalizePurchase("Base health increased!");
       }
     },
     BASE_DEFENSE: {
@@ -85,25 +55,14 @@
           return;
         }
 
-        if (window.GameState.diamonds >= this.getPrice()) {
-          window.GameState.diamonds -= this.getPrice();
-          window.GameState.baseDefenseUpgrades++;
+        const price = this.getPrice();
+        if (!Shop.validatePurchase(price)) return;
 
-          try {
-            localStorage.setItem('warriorDiamonds', window.GameState.diamonds);
-            localStorage.setItem('warriorBaseDefenseUpgrades', window.GameState.baseDefenseUpgrades);
-          } catch (e) {
-            console.error("Failed to save base defense upgrades:", e);
-            window.UI.showFeedback("Storage error saving upgrade.");
-          }
+        window.GameState.diamonds -= price;
+        window.GameState.baseDefenseUpgrades++;
 
-          window.UI.updateFooter();
-          Shop.updateShop();
-          window.UI.showFeedback("Base defense upgraded!");
-          window.UI.updateUpgradesDisplay();
-        } else {
-          window.UI.showFeedback("Not enough diamonds!");
-        }
+        Shop.savePurchase('warriorBaseDefenseUpgrades', window.GameState.baseDefenseUpgrades);
+        Shop.finalizePurchase("Base defense upgraded!");
       }
     },
     UNIT_HEALTH: {
@@ -111,34 +70,21 @@
       description: "Increase all unit max health by 3",
       getPrice: () => 12 + (window.GameState.unitHealthUpgrades * 18),
       apply: function() {
-        if (window.GameState.diamonds >= this.getPrice()) {
-          window.GameState.diamonds -= this.getPrice();
-          window.GameState.unitHealthUpgrades++;
+        const price = this.getPrice();
+        if (!Shop.validatePurchase(price)) return;
 
-          try {
-            localStorage.setItem('warriorDiamonds', window.GameState.diamonds);
-            localStorage.setItem('warriorUnitHealthUpgrades', window.GameState.unitHealthUpgrades);
-          } catch (e) {
-            console.error("Failed to save unit health upgrades:", e);
-            window.UI.showFeedback("Storage error saving upgrade.");
-          }
+        window.GameState.diamonds -= price;
+        window.GameState.unitHealthUpgrades++;
 
-          window.Units.units.forEach(unit => {
-            const oldMaxHp = unit.maxHp;
-            const healthPercentage = unit.hp / oldMaxHp;
-            unit.maxHp += 3;
-            unit.hp = Math.round(unit.maxHp * healthPercentage);
-          });
+        window.Units.units.forEach(unit => {
+          const oldMaxHp = unit.maxHp;
+          const healthPercentage = unit.hp / oldMaxHp;
+          unit.maxHp += 3;
+          unit.hp = Math.round(unit.maxHp * healthPercentage);
+        });
 
-          window.UI.updateFooter();
-          Shop.updateShop();
-          window.UI.addTooltips();
-          window.UI.updateUnitInfoPanel();
-          window.UI.showFeedback("Unit health increased!");
-          window.UI.updateUpgradesDisplay();
-        } else {
-          window.UI.showFeedback("Not enough diamonds!");
-        }
+        Shop.savePurchase('warriorUnitHealthUpgrades', window.GameState.unitHealthUpgrades);
+        Shop.finalizePurchase("Unit health increased!", true);
       }
     },
     UNIT_DAMAGE: {
@@ -146,44 +92,27 @@
       description: "Increase all unit damage by 2",
       getPrice: () => 15 + (window.GameState.unitDamageUpgrades * 25),
       apply: function() {
-        if (window.GameState.diamonds >= this.getPrice()) {
-          window.GameState.diamonds -= this.getPrice();
-          window.GameState.unitDamageUpgrades++;
-          
-          // Update base types
-          window.Units.UNIT_TYPES.BARBARIAN.damage += 2;
-          window.Units.UNIT_TYPES.ARCHER.damage += 2;
-          window.Units.UNIT_TYPES.HORSE.damage += 2;
-          window.Units.UNIT_TYPES.KNIGHT.damage += 2;
-          
-          // Update existing units
-          window.Units.units.forEach(unit => {
-            unit.damage = Math.floor(unit.damage + 2);
-          });
+        const price = this.getPrice();
+        if (!Shop.validatePurchase(price)) return;
 
-          try {
-            localStorage.setItem('warriorDiamonds', window.GameState.diamonds);
-            localStorage.setItem('warriorUnitDamage', JSON.stringify({
-              barb: window.Units.UNIT_TYPES.BARBARIAN.damage,
-              arch: window.Units.UNIT_TYPES.ARCHER.damage,
-              horse: window.Units.UNIT_TYPES.HORSE.damage,
-              knight: window.Units.UNIT_TYPES.KNIGHT.damage
-            }));
-            localStorage.setItem('warriorUnitDamageUpgrades', window.GameState.unitDamageUpgrades);
-          } catch (e) {
-            console.error("Failed to save unit damage upgrades:", e);
-            window.UI.showFeedback("Storage error saving upgrade.");
-          }
+        window.GameState.diamonds -= price;
+        window.GameState.unitDamageUpgrades++;
 
-          window.UI.updateFooter();
-          Shop.updateShop();
-          window.UI.addTooltips();
-          window.UI.updateUnitInfoPanel();
-          window.UI.showFeedback("Unit damage increased!");
-          window.UI.updateUpgradesDisplay();
-        } else {
-          window.UI.showFeedback("Not enough diamonds!");
-        }
+        // Update base types
+        const unitTypes = window.Units.UNIT_TYPES;
+        unitTypes.BARBARIAN.damage += 2;
+        unitTypes.ARCHER.damage += 2;
+        unitTypes.HORSE.damage += 2;
+        unitTypes.KNIGHT.damage += 2;
+
+        // Update existing units
+        window.Units.units.forEach(unit => {
+          unit.damage = Math.floor(unit.damage + 2);
+        });
+
+        Shop.savePurchase('warriorUnitDamageUpgrades', window.GameState.unitDamageUpgrades);
+        Shop.saveUnitDamage();
+        Shop.finalizePurchase("Unit damage increased!", true);
       }
     },
     NEW_UNIT: {
@@ -191,65 +120,168 @@
       description: "Unlock the powerful Knight unit",
       getPrice: () => 25,
       apply: function() {
-        if (window.GameState.diamonds >= this.getPrice() && !window.GameState.isKnightUnlocked) {
-          window.GameState.diamonds -= this.getPrice();
-          window.GameState.unlockKnight();
-          window.UI.updateFooter();
-          window.UI.showFeedback("Knight unlocked!");
-        } else if (window.GameState.isKnightUnlocked) {
+        if (window.GameState.isKnightUnlocked) {
           window.UI.showFeedback("Knight already unlocked!");
-        } else {
-          window.UI.showFeedback("Not enough diamonds!");
+          return;
         }
+
+        const price = this.getPrice();
+        if (!Shop.validatePurchase(price)) return;
+
+        if (price >= 25 && !confirm("Are you sure you want to unlock Knight for 25 diamonds?")) {
+          window.UI.showFeedback("Purchase cancelled");
+          return;
+        }
+
+        window.GameState.diamonds -= price;
+        window.GameState.unlockKnight();
+        Shop.finalizePurchase("Knight unlocked!");
       }
     }
   };
 
-  // Function to Update Shop UI
-  Shop.updateShop = function () {
-    const shopElement = document.getElementById("shop");
-    if (!shopElement) {
+  // Utility Functions
+  Shop.validatePurchase = function(price) {
+    if (isNaN(price) || price < 0) {
+      window.UI.showFeedback("Invalid purchase price!");
+      return false;
+    }
+    if (window.GameState.diamonds < price) {
+      window.UI.showFeedback("Not enough diamonds!");
+      return false;
+    }
+    return true;
+  };
+
+  Shop.savePurchase = function(key, value) {
+    try {
+      localStorage.setItem(key, value);
+      localStorage.setItem('warriorDiamonds', window.GameState.diamonds);
+    } catch (e) {
+      console.error(`Failed to save ${key}:`, e);
+      window.UI.showFeedback("Warning: Unable to save purchase data!");
+    }
+  };
+
+  Shop.saveUnitDamage = function() {
+    try {
+      localStorage.setItem('warriorUnitDamage', JSON.stringify({
+        barb: window.Units.UNIT_TYPES.BARBARIAN.damage,
+        arch: window.Units.UNIT_TYPES.ARCHER.damage,
+        horse: window.Units.UNIT_TYPES.HORSE.damage,
+        knight: window.Units.UNIT_TYPES.KNIGHT.damage
+      }));
+    } catch (e) {
+      console.error("Failed to save unit damage:", e);
+      window.UI.showFeedback("Warning: Unable to save unit damage data!");
+    }
+  };
+
+  Shop.updateGoldProduction = function() {
+    window.GameState.goldProductionRate = Math.max(300, 800 - (window.GameState.goldProductionUpgrades * 50));
+    
+    if (window.GameState.goldInterval) {
+      clearInterval(window.GameState.goldInterval);
+      window.GameState.goldInterval = null;
+    }
+
+    window.GameState.goldInterval = setInterval(() => {
+      if (window.GameState.gameActive && !window.GameState.gameOver && !window.GameState.gamePaused) {
+        window.GameState.gold += 1 + Math.floor(window.GameState.wave / 5);
+        window.UI.updateFooter();
+      }
+    }, window.GameState.goldProductionRate);
+  };
+
+  Shop.finalizePurchase = function(message, updateTooltips = false) {
+    window.UI.updateFooter();
+    Shop.throttledUpdate();
+    window.UI.showFeedback(message);
+    window.UI.updateUpgradesDisplay();
+    if (updateTooltips) {
+      window.UI.addTooltips();
+      window.UI.updateUnitInfoPanel();
+    }
+  };
+
+  // Throttle shop updates to prevent excessive DOM manipulation
+  Shop.throttleTimeout = null;
+  Shop.throttleDelay = 100;
+
+  Shop.throttledUpdate = function() {
+    if (Shop.throttleTimeout) return;
+    
+    Shop.throttleTimeout = setTimeout(() => {
+      Shop.updateShop();
+      Shop.throttleTimeout = null;
+    }, Shop.throttleDelay);
+  };
+
+  // Initialize DOM elements
+  Shop.init = function() {
+    DOM.shopElement = document.getElementById("shop");
+    DOM.toggleShopButton = document.getElementById("toggleShopButton");
+
+    if (!DOM.shopElement) {
       console.error("Shop element not found in HTML!");
+      window.UI.showFeedback("Error: Shop initialization failed!");
       return;
     }
-    shopElement.innerHTML = "<h3>Upgrades</h3>";
 
-    for (let key in Shop.SHOP_ITEMS) {
-      const item = Shop.SHOP_ITEMS[key];
-
-      if (key === "NEW_UNIT" && window.GameState.isKnightUnlocked) {
-        continue;
-      }
-
-      const MAX_DEFENSE_UPGRADES = 5;
-      if (key === "BASE_DEFENSE" && window.GameState.baseDefenseUpgrades >= MAX_DEFENSE_UPGRADES) {
-        const container = document.createElement("div");
-        container.className = "shop-item";
-        container.innerHTML = `
-          <button class="shop-button" disabled>${item.name} - MAX</button>
-          <p>${item.description}</p>
-        `;
-        shopElement.appendChild(container);
-        continue;
-      }
-
-      const container = document.createElement("div");
-      container.className = "shop-item";
-      const currentPrice = item.getPrice();
-      const isAffordable = window.GameState.diamonds >= currentPrice;
-
-      container.innerHTML = `
-        <button class="shop-button" ${!isAffordable ? 'disabled' : ''}>${item.name} - ${currentPrice} <span class="diamond-icon">💎</span></button>
-        <p>${item.description}</p>
-      `;
-
-      const button = container.querySelector("button");
-      button.onclick = () => {
-        item.apply();
-      };
-      shopElement.appendChild(container);
+    if (DOM.toggleShopButton) {
+      DOM.shopElement.style.display = "none";
+      DOM.toggleShopButton.textContent = "Show Shop";
     }
   };
+
+  // Update Shop UI
+  Shop.updateShop = function() {
+    if (!DOM.shopElement) {
+      console.error("Shop element not initialized!");
+      return;
+    }
+
+    DOM.shopElement.innerHTML = "<h3>Upgrades</h3>";
+    const MAX_DEFENSE_UPGRADES = 5;
+
+    Object.entries(Shop.SHOP_ITEMS).forEach(([key, item]) => {
+      if (key === "NEW_UNIT" && window.GameState.isKnightUnlocked) return;
+      if (key === "BASE_DEFENSE" && window.GameState.baseDefenseUpgrades >= MAX_DEFENSE_UPGRADES) {
+        DOM.shopElement.insertAdjacentHTML('beforeend', `
+          <div class="shop-item">
+            <button class="shop-button" disabled aria-disabled="true">${item.name} - MAX</button>
+            <p>${item.description}</p>
+          </div>
+        `);
+        return;
+      }
+
+      const price = item.getPrice();
+      const isAffordable = window.GameState.diamonds >= price;
+      const buttonClass = `shop-button ${isAffordable ? '' : 'disabled'}`;
+      
+      const shopItemHTML = `
+        <div class="shop-item">
+          <button class="${buttonClass}" 
+                  ${isAffordable ? '' : 'disabled'} 
+                  aria-label="Purchase ${item.name} for ${price} diamonds"
+                  ${isAffordable ? '' : 'aria-disabled="true"'}>
+            ${item.name} - ${price} <span class="diamond-icon">💎</span>
+          </button>
+          <p>${item.description}</p>
+        </div>
+      `;
+
+      DOM.shopElement.insertAdjacentHTML('beforeend', shopItemHTML);
+      const button = DOM.shopElement.lastElementChild.querySelector('button');
+      if (isAffordable) {
+        button.addEventListener('click', () => item.apply());
+      }
+    });
+  };
+
+  // Initialize on load
+  Shop.init();
 
   // Expose Shop
   window.Shop = Shop;
