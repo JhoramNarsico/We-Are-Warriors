@@ -262,6 +262,18 @@
     window.GameState.gameActive = false;
     window.GameState.gamePaused = true;
     window.Game.gameLoopRunning = false;
+    const shop = document.getElementById("shop");
+    const toggleShopButton = document.getElementById("toggleShopButton");
+    
+    if (shop) {
+      shop.style.display = "block";
+    }
+    if (toggleShopButton) {
+      toggleShopButton.textContent = "Hide Shop";
+    }
+    if (window.Shop && window.Shop.updateShop) {
+      window.Shop.updateShop();
+    }
 
     if (window.GameState.waveCooldownInterval) {
       clearInterval(window.GameState.waveCooldownInterval);
