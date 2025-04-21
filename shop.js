@@ -12,7 +12,7 @@
     GOLD_PRODUCTION: {
       name: "Gold Production +",
       description: "Increase gold gain rate",
-      getPrice: () => 10 + (window.GameState.goldProductionUpgrades * 15),
+      getPrice: () => 5 + (window.GameState.goldProductionUpgrades * 10),
       apply: function() {
         const price = this.getPrice();
         if (!Shop.validatePurchase(price)) return;
@@ -68,7 +68,7 @@
     UNIT_HEALTH: {
       name: "Unit Health +",
       description: "Increase all unit max health by 3",
-      getPrice: () => 12 + (window.GameState.unitHealthUpgrades * 18),
+      getPrice: () => 8 + (window.GameState.unitHealthUpgrades * 12),
       apply: function() {
         const price = this.getPrice();
         if (!Shop.validatePurchase(price)) return;

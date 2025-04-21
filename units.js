@@ -105,13 +105,13 @@
   }
 
   Units.getScaledEnemyStats = function (type, currentWave) {
-    const healthScale = Math.max(1.2, Math.pow(1.20, currentWave - 1));
-    const damageScale = Math.max(1.1, Math.pow(1.15, currentWave - 1));
+    const healthScale = Math.max(1, Math.pow(1.15, currentWave - 1)); // Reduced from 1.20
+    const damageScale = Math.max(1, Math.pow(1.10, currentWave - 1)); // Reduced from 1.15
     return {
       health: Math.floor(this.BASE_ENEMY_STATS[type].health * healthScale),
       damage: Math.floor(this.BASE_ENEMY_STATS[type].damage * damageScale),
       speed: this.BASE_ENEMY_STATS[type].speed,
-      reward: Math.floor(this.BASE_ENEMY_STATS[type].reward + currentWave * 0.75)
+      reward: Math.floor(this.BASE_ENEMY_STATS[type].reward + currentWave * 0.5)
     };
   };
 
