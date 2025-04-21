@@ -29,6 +29,44 @@
       }
     });
 
+    // Add hotkeys for unit selection (1: Barbarian, 2: Archer, 3: Horse, 4: Knight)
+    document.addEventListener("keydown", (e) => {
+      if (window.GameState.gamePaused || window.GameState.gameOver) return;
+
+      let unitType = null;
+      switch (e.code) {
+        case "Digit1":
+          unitType = "BARBARIAN";
+          break;
+        case "Digit2":
+          unitType = "ARCHER";
+          break;
+        case "Digit3":
+          unitType = "HORSE";
+          break;
+        case "Digit4":
+          unitType = "KNIGHT";
+          break;
+        default:
+          return;
+      }
+
+      if (unitType === "KNIGHT" && !window.GameState.isKnightUnlocked) {
+        window.UI.showFeedback("Knight is locked! Unlock in the Shop.");
+        return;
+      }
+
+      if (unitType && window.Units.UNIT_TYPES[unitType]) {
+        e.preventDefault();
+        window.Units.units.forEach(unit => unit.isSelected = false);
+        window.Units.enemyUnits.forEach(unit => unit.isSelected = false);
+        window.Units.selectedUnitType = window.Units.UNIT_TYPES[unitType];
+        window.UI.updateUnitSelectionUI();
+        window.UI.showFeedback(`${unitType.charAt(0).toUpperCase() + unitType.slice(1).toLowerCase()} selected`);
+        console.log(`Selected unit via hotkey: ${unitType}`);
+      }
+    });
+
     const fightButton = document.getElementById("fightButton");
     if (!fightButton) {
       console.error("Fight button not found!");
