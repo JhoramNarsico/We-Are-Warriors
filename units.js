@@ -1,42 +1,47 @@
+// --- START OF FILE units.js ---
+
 (function () {
   const Units = {};
 
+  // Define base stats including attack range and speed (cooldown in ms)
   Units.BASE_ENEMY_STATS = {
-    BARBARIAN: { health: 15, damage: 3, speed: 0.8, reward: 2 }, // Reduced speed from 1.1 to 0.8
-    ARCHER: { health: 8, damage: 6, speed: 1.0, reward: 3 }, // Reduced speed from 1.3 to 1.0
-    HORSE: { health: 25, damage: 12, speed: 1.6, reward: 4 }, // Reduced speed from 2.2 to 1.6
-    KNIGHT: { health: 40, damage: 8, speed: 1.2, reward: 6 } // Reduced speed from 1.5 to 1.2
+    // Melee units: range 35, speed 1000ms
+    // Archer: range 150, speed 1200ms
+    BARBARIAN: { health: 15, damage: 3, speed: 0.8, reward: 2, attackRange: 35, attackSpeed: 1000 },
+    ARCHER: { health: 8, damage: 6, speed: 1.0, reward: 3, attackRange: 150, attackSpeed: 1200 },
+    HORSE: { health: 25, damage: 12, speed: 1.6, reward: 4, attackRange: 40, attackSpeed: 900 }, // Slightly more range/faster attack than Barb
+    KNIGHT: { health: 40, damage: 8, speed: 1.2, reward: 6, attackRange: 40, attackSpeed: 1100 } // Tankier, bit more range, slower attack
   };
 
   Units.UNIT_TYPES = {
-    BARBARIAN: { 
-      ...Units.BASE_ENEMY_STATS.BARBARIAN, 
-      name: "Barbarian", 
-      color: "#3b5998", 
+    BARBARIAN: {
+      ...Units.BASE_ENEMY_STATS.BARBARIAN,
+      name: "Barbarian",
+      color: "#3b5998",
       cost: 5,
       lore: "Fierce highland warriors with unbreakable spirit.",
       strengths: "Balanced fighter with solid health and damage."
     },
-    ARCHER: { 
-      ...Units.BASE_ENEMY_STATS.ARCHER, 
-      name: "Archer", 
-      color: "#28a745", 
+    ARCHER: {
+      ...Units.BASE_ENEMY_STATS.ARCHER,
+      name: "Archer",
+      color: "#28a745",
       cost: 8,
       lore: "Forest sharpshooters with deadly precision.",
       strengths: "High ranged damage."
     },
-    HORSE: { 
-      ...Units.BASE_ENEMY_STATS.HORSE, 
-      name: "Horse", 
-      color: "#dc3545", 
+    HORSE: {
+      ...Units.BASE_ENEMY_STATS.HORSE,
+      name: "Horse",
+      color: "#dc3545",
       cost: 12,
       lore: "Swift warhorses bred for rapid strikes.",
       strengths: "Fast movement and strong attacks."
     },
-    KNIGHT: { 
-      ...Units.BASE_ENEMY_STATS.KNIGHT, 
-      name: "Knight", 
-      color: "#ffd700", 
+    KNIGHT: {
+      ...Units.BASE_ENEMY_STATS.KNIGHT,
+      name: "Knight",
+      color: "#ffd700",
       cost: 15,
       lore: "Honored protectors in sacred armor.",
       strengths: "High health and damage for late waves."
@@ -49,6 +54,11 @@
 
   const GRID_CELL_SIZE = 50;
   const grid = new Map();
+  // --- NEW: Constants for Behavior Tuning ---
+  const SEPARATION_RADIUS_SQ = Math.pow(20, 2); // How close friendlies need to be to separate
+  const SEPARATION_FORCE = 0.08; // How strongly they push apart
+  const LANE_ADHERENCE_FORCE = 0.02; // How strongly they stick to lanes when moving
+  const BASE_TARGETING_BUFFER = 20; // Extra distance units will target base from
 
   Units.getGridKey = function (x, y) {
     const gridX = Math.floor(x / GRID_CELL_SIZE);
@@ -72,7 +82,8 @@
     });
   };
 
-  Units.getNearbyUnits = function (x, y, isAlly) {
+  // Modified to find EITHER opponents or friendlies based on `findOpposingUnits`
+  Units.getNearbyUnits = function (x, y, unitIsAlly, findOpposingUnits) {
     const gridX = Math.floor(x / GRID_CELL_SIZE);
     const gridY = Math.floor(y / GRID_CELL_SIZE);
     const nearbyUnits = [];
@@ -81,7 +92,9 @@
         const key = `${gridX + dx},${gridY + dy}`;
         if (grid.has(key)) {
           grid.get(key).forEach(entry => {
-            if (entry.isAlly !== isAlly) {
+            // If finding opponents, check isAlly is different
+            // If finding friendlies, check isAlly is the same
+            if (findOpposingUnits ? (entry.isAlly !== unitIsAlly) : (entry.isAlly === unitIsAlly)) {
               nearbyUnits.push(entry);
             }
           });
@@ -91,10 +104,12 @@
     return nearbyUnits;
   };
 
+
   try {
     const savedDamage = localStorage.getItem('warriorUnitDamage');
     if (savedDamage) {
       const damage = JSON.parse(savedDamage);
+      // Update damage from upgrades, keep base range/speed
       Units.UNIT_TYPES.BARBARIAN.damage = damage.barb || Units.BASE_ENEMY_STATS.BARBARIAN.damage;
       Units.UNIT_TYPES.ARCHER.damage = damage.arch || Units.BASE_ENEMY_STATS.ARCHER.damage;
       Units.UNIT_TYPES.HORSE.damage = damage.horse || Units.BASE_ENEMY_STATS.HORSE.damage;
@@ -105,17 +120,20 @@
   }
 
   Units.getScaledEnemyStats = function (type, currentWave) {
-    const healthScale = Math.max(1, Math.pow(1.15, currentWave - 1)); // Reduced from 1.20
-    const damageScale = Math.max(1, Math.pow(1.10, currentWave - 1)); // Reduced from 1.15
+    const healthScale = Math.max(1, Math.pow(1.15, currentWave - 1));
+    const damageScale = Math.max(1, Math.pow(1.10, currentWave - 1));
+    const baseStats = this.BASE_ENEMY_STATS[type]; // Get base stats including range/speed
     return {
-      health: Math.floor(this.BASE_ENEMY_STATS[type].health * healthScale),
-      damage: Math.floor(this.BASE_ENEMY_STATS[type].damage * damageScale),
-      speed: this.BASE_ENEMY_STATS[type].speed,
-      reward: Math.floor(this.BASE_ENEMY_STATS[type].reward + currentWave * 0.5)
+      ...baseStats, // Include base range and speed
+      health: Math.floor(baseStats.health * healthScale),
+      damage: Math.floor(baseStats.damage * damageScale),
+      reward: Math.floor(baseStats.reward + currentWave * 0.5)
+      // Speed and attackRange/attackSpeed remain constant (or could be scaled too if desired)
     };
   };
 
   Units.spawnWave = function (waveNum) {
+    // ... (spawn logic remains largely the same, but now units get attackRange/Speed from stats)
     if (!window.Canvas || !window.Canvas.canvas) {
       console.error("Canvas not initialized!");
       window.UI.showFeedback("Error: Game canvas not available!");
@@ -128,7 +146,6 @@
     }
 
     this.enemyUnits = [];
-    this.updateGrid();
 
     const barbarianCount = 3 + Math.floor(waveNum / 2);
     const archerCount = Math.floor(waveNum / 3);
@@ -139,176 +156,283 @@
     const laneHeight = window.Canvas.canvas.height * 0.166;
     const startY = window.Canvas.canvas.height * 0.333;
 
-    for (let i = 0; i < barbarianCount; i++) {
-      const stats = this.getScaledEnemyStats("BARBARIAN", waveNum);
-      const lane = i % 3;
-      const unit = {
-        x: spawnX,
-        y: startY + lane * laneHeight + (Math.random() - 0.5) * laneHeight * 0.5,
-        type: { ...this.UNIT_TYPES.BARBARIAN, ...stats },
-        hp: Math.floor(stats.health),
-        speed: stats.speed,
-        damage: Math.floor(stats.damage),
-        maxHp: Math.floor(stats.health),
-        opacity: 1,
-        lane: lane,
-        lastAttack: null,
-        lastGridKey: null,
-        spawnTime: Date.now(),
-        velocityX: 0,
-        velocityY: 0
-      };
-      if (unit.x < 0 || unit.x > window.Canvas.canvas.width || unit.y < 0 || unit.y > window.Canvas.canvas.height) {
-        console.error(`Barbarian spawn out of bounds: x=${unit.x}, y=${unit.y}`);
-      }
-      this.enemyUnits.push(unit);
-    }
-    for (let i = 0; i < archerCount; i++) {
-      const stats = this.getScaledEnemyStats("ARCHER", waveNum);
-      const lane = i % 3;
-      const unit = {
-        x: spawnX,
-        y: startY + lane * laneHeight + (Math.random() - 0.5) * laneHeight * 0.5,
-        type: { ...this.UNIT_TYPES.ARCHER, ...stats },
-        hp: Math.floor(stats.health),
-        speed: stats.speed,
-        damage: Math.floor(stats.damage),
-        maxHp: Math.floor(stats.health),
-        opacity: 1,
-        lane: lane,
-        lastAttack: null,
-        lastGridKey: null,
-        spawnTime: Date.now(),
-        velocityX: 0,
-        velocityY: 0
-      };
-      if (unit.x < 0 || unit.x > window.Canvas.canvas.width || unit.y < 0 || unit.y > window.Canvas.canvas.height) {
-        console.error(`Archer spawn out of bounds: x=${unit.x}, y=${unit.y}`);
-      }
-      this.enemyUnits.push(unit);
-    }
-    for (let i = 0; i < horseCount; i++) {
-      const stats = this.getScaledEnemyStats("HORSE", waveNum);
-      const lane = i % 3;
-      const unit = {
-        x: spawnX,
-        y: startY + lane * laneHeight + (Math.random() - 0.5) * laneHeight * 0.5,
-        type: { ...this.UNIT_TYPES.HORSE, ...stats },
-        hp: Math.floor(stats.health),
-        speed: stats.speed,
-        damage: Math.floor(stats.damage),
-        maxHp: Math.floor(stats.health),
-        opacity: 1,
-        lane: lane,
-        lastAttack: null,
-        lastGridKey: null,
-        spawnTime: Date.now(),
-        velocityX: 0,
-        velocityY: 0
-      };
-      if (unit.x < 0 || unit.x > window.Canvas.canvas.width || unit.y < 0 || unit.y > window.Canvas.canvas.height) {
-        console.error(`Horse spawn out of bounds: x=${unit.x}, y=${unit.y}`);
-      }
-      this.enemyUnits.push(unit);
-    }
-    for (let i = 0; i < knightCount; i++) {
-      const stats = this.getScaledEnemyStats("KNIGHT", waveNum);
-      const lane = i % 3;
-      const unit = {
-        x: spawnX,
-        y: startY + lane * laneHeight + (Math.random() - 0.5) * laneHeight * 0.5,
-        type: { ...this.UNIT_TYPES.KNIGHT, ...stats },
-        hp: Math.floor(stats.health),
-        speed: stats.speed,
-        damage: Math.floor(stats.damage),
-        maxHp: Math.floor(stats.health),
-        opacity: 1,
-        lane: lane,
-        lastAttack: null,
-        lastGridKey: null,
-        spawnTime: Date.now(),
-        velocityX: 0,
-        velocityY: 0
-      };
-      if (unit.x < 0 || unit.x > window.Canvas.canvas.width || unit.y < 0 || unit.y > window.Canvas.canvas.height) {
-        console.error(`Knight spawn out of bounds: x=${unit.x}, y=${unit.y}`);
-      }
-      this.enemyUnits.push(unit);
-    }
+    const createUnit = (typeKey, waveNum, laneIndex) => {
+        const stats = this.getScaledEnemyStats(typeKey, waveNum);
+        const lane = laneIndex % 3;
+        const unit = {
+            x: spawnX + (Math.random() - 0.5) * 20,
+            y: startY + lane * laneHeight + (Math.random() - 0.5) * laneHeight * 0.5,
+            // --- Use combined type and scaled stats ---
+            type: { ...this.UNIT_TYPES[typeKey], ...stats }, // Ensure type includes everything
+            hp: Math.floor(stats.health),
+            speed: stats.speed, // Use speed from stats
+            damage: Math.floor(stats.damage),
+            attackRange: stats.attackRange, // Use range from stats
+            attackSpeed: stats.attackSpeed, // Use speed from stats
+            maxHp: Math.floor(stats.health),
+            opacity: 1,
+            lane: lane,
+            lastAttack: null,
+            lastGridKey: null,
+            spawnTime: Date.now(),
+            velocityX: 0,
+            velocityY: 0
+        };
+        unit.y = Math.max(0, Math.min(window.Canvas.canvas.height - 30, unit.y));
+        unit.x = Math.max(0, Math.min(window.Canvas.canvas.width - 30, unit.x));
+        if (unit.x < 0 || unit.x > window.Canvas.canvas.width || unit.y < 0 || unit.y > window.Canvas.canvas.height) {
+            console.error(`${typeKey} spawn out of bounds: x=${unit.x}, y=${unit.y}`);
+        }
+        return unit;
+    };
+
+    for (let i = 0; i < barbarianCount; i++) this.enemyUnits.push(createUnit("BARBARIAN", waveNum, i));
+    for (let i = 0; i < archerCount; i++) this.enemyUnits.push(createUnit("ARCHER", waveNum, i));
+    for (let i = 0; i < horseCount; i++) this.enemyUnits.push(createUnit("HORSE", waveNum, i));
+    for (let i = 0; i < knightCount; i++) this.enemyUnits.push(createUnit("KNIGHT", waveNum, i));
+
 
     window.GameState.waveStarted = true;
     console.log(`Spawned ${this.enemyUnits.length} enemy units for wave ${waveNum}: Barbarians=${barbarianCount}, Archers=${archerCount}, Horses=${horseCount}, Knights=${knightCount}`);
     window.UI.showFeedback(`Wave ${waveNum} started with ${this.enemyUnits.length} enemies!`);
+    this.updateGrid();
   };
 
   Units.spawnUnit = function () {
+     // ... (spawn logic remains largely the same, but now units get attackRange/Speed from type)
     if (!window.Canvas || !window.Canvas.canvas) {
       console.error("Canvas not initialized!");
       window.UI.showFeedback("Error: Game canvas not available!");
       return;
     }
-    console.log("Attempting to spawn unit", {
-      gameActive: window.GameState.gameActive,
-      gameOver: window.GameState.gameOver,
-      gamePaused: window.GameState.gamePaused,
-      gold: window.GameState.gold,
-      unitType: this.selectedUnitType.name,
-      cost: this.selectedUnitType.cost,
-      canvasWidth: window.Canvas.canvas.width,
-      canvasHeight: window.Canvas.canvas.height
-    });
+    // ... (rest of the spawn conditions check) ...
 
     if (window.GameState.gameActive && !window.GameState.gameOver && !window.GameState.gamePaused) {
-      if (this.selectedUnitType.name === "Knight" && !window.GameState.isKnightUnlocked) {
-        window.UI.showFeedback("Knight is locked!");
-        return;
-      }
-
-      if (window.GameState.gold >= this.selectedUnitType.cost) {
-        window.GameState.gold -= this.selectedUnitType.cost;
-        const lane = this.units.length % 3;
-        const spawnX = window.Canvas.canvas.width * 0.1;
-        const laneHeight = window.Canvas.canvas.height * 0.166;
-        const startY = window.Canvas.canvas.height * 0.333;
-
-        const newUnit = {
-          x: spawnX,
-          y: startY + lane * laneHeight + (Math.random() - 0.5) * laneHeight * 0.5,
-          type: this.selectedUnitType,
-          hp: Math.floor(Number(this.selectedUnitType.health) + (window.GameState.unitHealthUpgrades * 3)),
-          speed: Number(this.selectedUnitType.speed),
-          damage: Math.floor(Number(this.selectedUnitType.damage)),
-          maxHp: Math.floor(Number(this.selectedUnitType.health) + (window.GameState.unitHealthUpgrades * 3)),
-          opacity: 1,
-          lane: lane,
-          lastAttack: null,
-          lastGridKey: null,
-          spawnTime: Date.now(),
-          velocityX: 0,
-          velocityY: 0
-        };
-
-        if (newUnit.x < 0 || newUnit.x > window.Canvas.canvas.width || newUnit.y < 0 || newUnit.y > window.Canvas.canvas.height) {
-          console.warn(`Unit spawn potentially out of bounds: x=${newUnit.x}, y=${newUnit.y}`);
+        if (this.selectedUnitType.name === "Knight" && !window.GameState.isKnightUnlocked) {
+          window.UI.showFeedback("Knight is locked!");
+          return;
         }
+        if (window.GameState.gold >= this.selectedUnitType.cost) {
+            window.GameState.gold -= this.selectedUnitType.cost;
+            const lane = this.units.length % 3;
+            const spawnX = window.Canvas.canvas.width * 0.1;
+            const laneHeight = window.Canvas.canvas.height * 0.166;
+            const startY = window.Canvas.canvas.height * 0.333;
 
-        this.units.push(newUnit);
-        console.log(`Spawned unit: ${newUnit.type.name} at x:${newUnit.x}, y:${newUnit.y}`);
-        if (window.GameState.soundEnabled) {
-          document.getElementById("spawnSound").play().catch(e => {
-            console.error("Spawn sound error:", e);
-          });
+            const unitType = this.selectedUnitType; // Get the selected type
+
+            const newUnit = {
+                x: spawnX + (Math.random() - 0.5) * 20,
+                y: startY + lane * laneHeight + (Math.random() - 0.5) * laneHeight * 0.5,
+                type: unitType, // Assign the full type object
+                hp: Math.floor(Number(unitType.health) + (window.GameState.unitHealthUpgrades * 3)),
+                speed: Number(unitType.speed),
+                damage: Math.floor(Number(unitType.damage)), // Already includes potential upgrades from load
+                attackRange: Number(unitType.attackRange), // Get range from type
+                attackSpeed: Number(unitType.attackSpeed), // Get attack speed from type
+                maxHp: Math.floor(Number(unitType.health) + (window.GameState.unitHealthUpgrades * 3)),
+                opacity: 1,
+                lane: lane,
+                lastAttack: null,
+                lastGridKey: null,
+                spawnTime: Date.now(),
+                velocityX: 0,
+                velocityY: 0
+            };
+            newUnit.y = Math.max(0, Math.min(window.Canvas.canvas.height - 30, newUnit.y));
+            newUnit.x = Math.max(0, Math.min(window.Canvas.canvas.width - 30, newUnit.x));
+            if (newUnit.x < 0 || newUnit.x > window.Canvas.canvas.width || newUnit.y < 0 || newUnit.y > window.Canvas.canvas.height) {
+               console.warn(`Unit spawn potentially out of bounds: x=${newUnit.x}, y=${newUnit.y}`);
+            }
+            this.units.push(newUnit);
+            console.log(`Spawned unit: ${newUnit.type.name} at x:${newUnit.x}, y:${newUnit.y}`);
+            if (window.GameState.soundEnabled) {
+                document.getElementById("spawnSound").play().catch(e => { console.error("Spawn sound error:", e); });
+            }
+            window.UI.updateFooter();
+            this.updateGrid();
+        } else {
+            console.log("Not enough gold to spawn unit");
+            window.UI.showFeedback("Not enough gold!");
         }
-        window.UI.updateFooter();
-      } else {
-        console.log("Not enough gold to spawn unit");
-        window.UI.showFeedback("Not enough gold!");
-      }
     } else {
       console.log("Cannot spawn unit: invalid game state");
       window.UI.showFeedback("Cannot spawn: Game not active or paused!");
     }
   };
+
+  // --- Centralized Unit Update Logic ---
+  function updateSingleUnit(unit, isAllyUnit, allUnits, allEnemyUnits) {
+    let targetOpponentUnit = null;
+    let closestOpponentDistSq = Infinity;
+    let targetX, targetY;
+    let targetIsBase = false;
+    let targetObject = null;
+
+    // Scale attack range by canvas width
+    const scaledAttackRange = unit.attackRange * (window.Canvas.canvas.width / 800);
+    const unitAttackRangeSq = Math.pow(scaledAttackRange, 2);
+    // Base attack range: unit's range + a buffer
+    const baseAttackRangeSq = Math.pow(scaledAttackRange + BASE_TARGETING_BUFFER * (window.Canvas.canvas.width / 800), 2);
+
+    // 1. Find the nearest OPPONENT unit
+    const nearbyOpponents = Units.getNearbyUnits(unit.x, unit.y, isAllyUnit, true); // true = find opposing
+    nearbyOpponents.forEach(({ unit: opponent }) => {
+      const dx = opponent.x - unit.x;
+      const dy = opponent.y - unit.y;
+      const distanceSq = dx * dx + dy * dy;
+      if (distanceSq < closestOpponentDistSq) {
+        closestOpponentDistSq = distanceSq;
+        targetOpponentUnit = opponent;
+      }
+    });
+
+    // 2. Determine Target
+    if (targetOpponentUnit) {
+      targetObject = targetOpponentUnit;
+      targetX = targetOpponentUnit.x;
+      targetY = targetOpponentUnit.y;
+      targetIsBase = false;
+    } else {
+      // Target the appropriate base
+      if (isAllyUnit) {
+        // Ally targets enemy base (right side)
+        targetX = window.Canvas.canvas.width * 0.9375; // Reference X for targeting
+        targetY = window.Canvas.canvas.height * 0.5;
+        targetObject = { x: targetX, y: targetY, type: { name: "EnemyBase" } }; // Dummy base object
+      } else {
+        // Enemy targets player base (left side)
+        targetX = window.Canvas.canvas.width * 0.075; // Reference X for targeting
+        targetY = window.Canvas.canvas.height * 0.5;
+        targetObject = { x: targetX, y: targetY, type: { name: "PlayerBase" } }; // Dummy base object
+      }
+      targetIsBase = true;
+    }
+
+    const dxTarget = targetX - unit.x;
+    const dyTarget = targetY - unit.y;
+    const targetDistSq = dxTarget * dxTarget + dyTarget * dyTarget;
+    const currentAttackRangeSq = targetIsBase ? baseAttackRangeSq : unitAttackRangeSq;
+
+    // 3. Decide Action: Attack or Move
+    let isAttacking = false;
+    if (targetDistSq <= currentAttackRangeSq) {
+      isAttacking = true;
+      // Attack logic
+      // Stop horizontal/vertical movement completely when attacking for simplicity now
+      // We could allow *slight* forward creep for melee later if desired.
+      unit.velocityX = 0;
+      unit.velocityY = 0;
+      if (!unit.lastAttack || Date.now() - unit.lastAttack > unit.attackSpeed) { // Use unit's attack speed
+        unit.lastAttack = Date.now();
+        window.Canvas.addAttackAnimation(unit, targetX, targetY); // Use target coords for animation
+        if (targetIsBase) {
+            if (isAllyUnit) { // Ally hitting enemy base
+                window.GameState.enemyBaseHealth = Math.max(0, window.GameState.enemyBaseHealth - Math.floor(unit.damage));
+                window.UI.showDamageNumber(targetX, targetY, Math.floor(unit.damage), false);
+            } else { // Enemy hitting player base
+                const damageReduction = 1 - (window.GameState.baseDefenseUpgrades * 0.1);
+                const damageDealt = Math.max(1, Math.floor(Math.floor(unit.damage) * damageReduction));
+                window.GameState.baseHealth = Math.max(0, window.GameState.baseHealth - damageDealt);
+                window.UI.showDamageNumber(targetX, targetY, damageDealt, true);
+                // Check for game over immediately after dealing damage to player base
+                if (window.GameState.baseHealth <= 0 && !window.GameState.gameOver) {
+                    console.log(`Enemy ${unit.type.name} dealt fatal blow to base.`);
+                    window.UI.showGameOverModal("Defeat!");
+                    // Return a flag or handle game over state immediately if possible
+                    return 'GameOver'; // Signal game over
+                }
+            }
+        } else { // Attacking another unit
+            targetObject.hp = Math.max(0, Math.floor(targetObject.hp - Math.floor(unit.damage)));
+            window.UI.showDamageNumber(targetObject.x, targetObject.y, Math.floor(unit.damage), !isAllyUnit); // !isAllyUnit indicates enemy damage
+        }
+      }
+    } else {
+      // Movement logic
+      const distance = Math.sqrt(targetDistSq);
+      // Base speed adjustment, similar to before but maybe slightly higher base factor
+      const moveSpeed = unit.speed * (window.Canvas.canvas.width / 800) * 0.6;
+
+      // --- Calculate Desired Velocity Components ---
+
+      // 1. Target Following Vector (Normalized)
+      let targetVelX = 0;
+      let targetVelY = 0;
+      if (distance > 1) { // Avoid division by zero
+          targetVelX = dxTarget / distance;
+          targetVelY = dyTarget / distance;
+      }
+
+      // 2. Lane Adherence Vector (Points towards lane center)
+      const laneCenterY = window.Canvas.canvas.height * 0.333 + unit.lane * (window.Canvas.canvas.height * 0.166);
+      const dyLane = laneCenterY - unit.y;
+      let laneVelX = 0;
+      let laneVelY = 0;
+      const distToLaneCenter = Math.abs(dyLane);
+      if (distToLaneCenter > 5) { // Only apply if significantly off-lane
+          laneVelY = dyLane / distToLaneCenter; // Normalized vertical direction
+      }
+
+      // 3. Separation Vector (Pushes away from close friendlies)
+      let separationVelX = 0;
+      let separationVelY = 0;
+      const nearbyFriendlies = Units.getNearbyUnits(unit.x, unit.y, isAllyUnit, false); // false = find friendlies
+      nearbyFriendlies.forEach(({ unit: friendly }) => {
+        if (friendly === unit) return; // Don't separate from self
+        const dxFriendly = unit.x - friendly.x;
+        const dyFriendly = unit.y - friendly.y;
+        const distSqFriendly = dxFriendly * dxFriendly + dyFriendly * dyFriendly;
+
+        if (distSqFriendly > 0 && distSqFriendly < SEPARATION_RADIUS_SQ) {
+           const distFriendly = Math.sqrt(distSqFriendly);
+           // Add force pushing away, stronger when closer
+           separationVelX += (dxFriendly / distFriendly) / distFriendly; // Inverse distance weighting
+           separationVelY += (dyFriendly / distFriendly) / distFriendly;
+        }
+      });
+
+      // --- Combine Velocities ---
+      // Weight the components: primary is target, add lane adherence and separation
+      // Reduce lane adherence effect when very close to target? Maybe not needed yet.
+      let desiredVelX = targetVelX * moveSpeed
+                      + laneVelX * LANE_ADHERENCE_FORCE // Lane force is weaker, acts as a nudge
+                      + separationVelX * SEPARATION_FORCE; // Separation force is also a nudge
+
+      // Make vertical target following slightly less strong to prioritize horizontal progress
+      let desiredVelY = targetVelY * moveSpeed * 0.7 // Slightly reduced vertical pull towards target (was 0.3)
+                      + laneVelY * LANE_ADHERENCE_FORCE // Lane force nudge
+                      + separationVelY * SEPARATION_FORCE; // Separation force nudge
+
+
+      // --- Apply Smoothing / Acceleration ---
+      // Increase acceleration factor slightly for responsiveness
+      const accelerationFactor = 0.08;
+      unit.velocityX += (desiredVelX - unit.velocityX) * accelerationFactor;
+      unit.velocityY += (desiredVelY - unit.velocityY) * accelerationFactor;
+
+      // Optional: Clamp maximum velocity?
+      // const maxVel = moveSpeed * 1.5;
+      // const currentSpeedSq = unit.velocityX * unit.velocityX + unit.velocityY * unit.velocityY;
+      // if (currentSpeedSq > maxVel * maxVel) {
+      //    const currentSpeed = Math.sqrt(currentSpeedSq);
+      //    unit.velocityX = (unit.velocityX / currentSpeed) * maxVel;
+      //    unit.velocityY = (unit.velocityY / currentSpeed) * maxVel;
+      // }
+
+      // --- Update Position ---
+      unit.x += unit.velocityX;
+      unit.y += unit.velocityY;
+
+      // Clamp position to canvas bounds (prevent units going off-screen)
+      unit.y = Math.max(10, Math.min(window.Canvas.canvas.height - 40, unit.y));
+      unit.x = Math.max(10, Math.min(window.Canvas.canvas.width - 40, unit.x));
+    }
+
+    // Return null normally, or 'GameOver' if base destroyed
+    return null;
+  }
+
 
   Units.update = function () {
     try {
@@ -316,10 +440,10 @@
         requestAnimationFrame(this.update.bind(this));
         return;
       }
-  
+
       let needsGridUpdate = false;
-  
-      // Check for grid updates
+
+      // Check for grid updates - can be optimized later if needed
       this.units.forEach(unit => {
         const currentKey = this.getGridKey(unit.x, unit.y);
         if (unit.lastGridKey !== currentKey) needsGridUpdate = true;
@@ -328,13 +452,11 @@
         const currentKey = this.getGridKey(unit.x, unit.y);
         if (unit.lastGridKey !== currentKey) needsGridUpdate = true;
       });
-  
-      // Collect rewards and units to remove
+
       const rewards = { gold: 0, diamonds: 0 };
       const unitsToRemove = [];
       const enemyUnitsToRemove = [];
-  
-      // Remove dead ally units
+
       for (let i = this.units.length - 1; i >= 0; i--) {
         const unit = this.units[i];
         if (unit.hp <= 0) {
@@ -343,8 +465,6 @@
           needsGridUpdate = true;
         }
       }
-  
-      // Remove dead enemy units and collect rewards
       for (let i = this.enemyUnits.length - 1; i >= 0; i--) {
         const unit = this.enemyUnits[i];
         if (unit.hp <= 0) {
@@ -355,264 +475,121 @@
           needsGridUpdate = true;
         }
       }
-  
-      // Apply rewards and remove units
+
       if (rewards.gold > 0 || rewards.diamonds > 0) {
         window.GameState.gold += rewards.gold;
         window.GameState.diamonds += rewards.diamonds;
-        try {
-          localStorage.setItem('warriorDiamonds', window.GameState.diamonds);
-        } catch (e) {
-          console.error("Failed to save diamonds:", e);
-          window.UI.showFeedback("Warning: Unable to save progress.");
-        }
+        try { localStorage.setItem('warriorDiamonds', window.GameState.diamonds); }
+        catch (e) { console.error("Failed to save diamonds:", e); window.UI.showFeedback("Warning: Unable to save progress."); }
         window.UI.updateFooter();
       }
-  
+
       unitsToRemove.forEach(i => this.units.splice(i, 1));
       enemyUnitsToRemove.forEach(i => this.enemyUnits.splice(i, 1));
-  
+
       if (needsGridUpdate) {
-        try {
-          this.updateGrid();
-        } catch (e) {
-          console.error("Grid update failed:", e);
-          window.UI.showFeedback("Error updating unit positions!");
-        }
+        try { this.updateGrid(); }
+        catch (e) { console.error("Grid update failed:", e); window.UI.showFeedback("Error updating unit positions!"); }
       }
-  
+
       window.Canvas.ctx.clearRect(0, 0, window.Canvas.canvas.width, window.Canvas.canvas.height);
-  
+
       const playerMaxHealth = 150 + (window.GameState.baseHealthUpgrades * 25);
       window.Canvas.drawBase(60, "#3b5998", window.GameState.baseHealth, playerMaxHealth, window.GameState.baseDefenseUpgrades);
-      window.Canvas.drawBase(750, "#dc3545", window.GameState.enemyBaseHealth, 150, 0);
-  
-      // Update ally units
+      window.Canvas.drawBase(740, "#dc3545", window.GameState.enemyBaseHealth, 150, 0);
+
+
+      // --- Ally Unit Update Loop ---
       for (let i = this.units.length - 1; i >= 0; i--) {
-        const unit = this.units[i];
-        let closestEnemy = null;
-        let closestDistanceSq = Infinity;
-        let closestTarget = null;
-        let closestTargetDistanceSq = Infinity;
-        let targetX, targetY;
-  
-        // Find nearest enemy unit
-        const nearbyEnemies = this.getNearbyUnits(unit.x, unit.y, true);
-        nearbyEnemies.forEach(({ unit: enemy }) => {
-          const dx = enemy.x - unit.x;
-          const dy = enemy.y - unit.y;
-          const distanceSq = dx * dx + dy * dy;
-          if (distanceSq < closestDistanceSq) {
-            closestDistanceSq = distanceSq;
-            closestEnemy = enemy;
-          }
-        });
-  
-        // Check distance to enemy base
-        const enemyBaseX = window.Canvas.canvas.width * 0.9375;
-        const enemyBaseY = window.Canvas.canvas.height * 0.5;
-        const dxToBase = enemyBaseX - unit.x;
-        const dyToBase = enemyBaseY - unit.y;
-        const distanceToBaseSq = dxToBase * dxToBase + dyToBase * dyToBase;
-  
-        // Determine closest target (enemy unit or base)
-        if (closestEnemy && closestDistanceSq < distanceToBaseSq) {
-          closestTarget = closestEnemy;
-          closestTargetDistanceSq = closestDistanceSq;
-          targetX = closestEnemy.x;
-          targetY = closestEnemy.y;
-        } else {
-          closestTarget = { x: enemyBaseX, y: enemyBaseY, type: { name: "EnemyBase" } };
-          closestTargetDistanceSq = distanceToBaseSq;
-          targetX = enemyBaseX;
-          targetY = enemyBaseY;
-        }
-  
-        const attackRangeSq = Math.pow(30 * (window.Canvas.canvas.width / 800), 2);
-        const baseAttackRangeSq = Math.pow(50 * (window.Canvas.canvas.width / 800), 2);
-  
-        // Attack logic
-        if (closestTargetDistanceSq <= (closestTarget.type.name === "EnemyBase" ? baseAttackRangeSq : attackRangeSq)) {
-          if (!unit.lastAttack || Date.now() - unit.lastAttack > 1000) {
-            unit.lastAttack = Date.now();
-            window.Canvas.addAttackAnimation(unit, targetX, targetY);
-            if (closestTarget.type.name === "EnemyBase") {
-              window.GameState.enemyBaseHealth = Math.max(0, window.GameState.enemyBaseHealth - Math.floor(unit.damage));
-              window.UI.showDamageNumber(enemyBaseX, enemyBaseY, Math.floor(unit.damage), false);
-            } else {
-              closestTarget.hp = Math.max(0, Math.floor(closestTarget.hp - Math.floor(unit.damage)));
-              window.UI.showDamageNumber(closestTarget.x, closestTarget.y, Math.floor(unit.damage), false);
-            }
-          }
-        } else {
-          // Move toward the closest target
-          const dx = targetX - unit.x;
-          const dy = targetY - unit.y;
-          const distance = Math.sqrt(dx * dx + dy * dy);
-          const moveSpeed = unit.speed * (window.Canvas.canvas.width / 800) * 0.5; // Reduced from 0.7 to 0.5
-          console.log(`Unit ${unit.type.name} moveSpeed: ${moveSpeed}`); // Debug log
-
-          // Smooth movement with velocity
-          const targetVelocityX = distance > moveSpeed ? (dx / distance) * moveSpeed : dx;
-          const targetVelocityY = distance > moveSpeed ? (dy / distance) * moveSpeed * 0.3 : dy * 0.3;
-          unit.velocityX += (targetVelocityX - unit.velocityX) * 0.05; // Reduced from 0.1 to 0.05
-          unit.velocityY += (targetVelocityY - unit.velocityY) * 0.05; // Reduced from 0.1 to 0.05
-  
-          // Stronger lane adherence, but softened
-          const laneCenterY = window.Canvas.canvas.height * 0.333 + unit.lane * (window.Canvas.canvas.height * 0.166);
-          const yDiff = laneCenterY - unit.y;
-          unit.velocityY += yDiff * 0.05; // Reduced from 0.1 to 0.05
-  
-          // Update position
-          unit.x += unit.velocityX;
-          unit.y += unit.velocityY;
-  
-          // Clamp position to canvas bounds
-          unit.y = Math.max(0, Math.min(window.Canvas.canvas.height - 30, unit.y));
-          unit.x = Math.max(0, Math.min(window.Canvas.canvas.width - 30, unit.x));
-        }
-  
-        window.Canvas.drawUnit(unit);
+         // Check if unit still exists (might have been removed if target died)
+         if (!this.units[i]) continue;
+         const unit = this.units[i];
+         // No need to pass allUnits/allEnemyUnits if updateSingleUnit uses getNearbyUnits
+         updateSingleUnit(unit, true, this.units, this.enemyUnits);
+         // Draw unit *after* its state is updated
+         window.Canvas.drawUnit(unit);
       }
-  
-      // Update enemy units
-      for (let i = this.enemyUnits.length - 1; i >= 0; i--) {
-        const unit = this.enemyUnits[i];
-        let closestAlly = null;
-        let closestDistanceSq = Infinity;
-        let closestTarget = null;
-        let closestTargetDistanceSq = Infinity;
-        let targetX, targetY;
-  
-        // Find nearest ally unit
-        const nearbyAllies = this.getNearbyUnits(unit.x, unit.y, false);
-        nearbyAllies.forEach(({ unit: ally }) => {
-          const dx = ally.x - unit.x;
-          const dy = ally.y - unit.y;
-          const distanceSq = dx * dx + dy * dy;
-          if (distanceSq < closestDistanceSq) {
-            closestDistanceSq = distanceSq;
-            closestAlly = ally;
-          }
-        });
-  
-        // Check distance to player base
-        const playerBaseX = window.Canvas.canvas.width * 0.075;
-        const playerBaseY = window.Canvas.canvas.height * 0.5;
-        const dxToBase = playerBaseX - unit.x;
-        const dyToBase = playerBaseY - unit.y;
-        const distanceToBaseSq = dxToBase * dxToBase + dyToBase * dyToBase;
-  
-        // Determine closest target (ally unit or player base)
-        if (closestAlly && closestDistanceSq < distanceToBaseSq) {
-          closestTarget = closestAlly;
-          closestTargetDistanceSq = closestDistanceSq;
-          targetX = closestAlly.x;
-          targetY = closestAlly.y;
-        } else {
-          closestTarget = { x: playerBaseX, y: playerBaseY, type: { name: "PlayerBase" } };
-          closestTargetDistanceSq = distanceToBaseSq;
-          targetX = playerBaseX;
-          targetY = playerBaseY;
-        }
-  
-        const attackRangeSq = Math.pow(30 * (window.Canvas.canvas.width / 800), 2);
-        const baseAttackRangeSq = Math.pow(50 * (window.Canvas.canvas.width / 800), 2);
-  
-        // Attack logic
-        if (closestTargetDistanceSq <= (closestTarget.type.name === "PlayerBase" ? baseAttackRangeSq : attackRangeSq)) {
-          if (!unit.lastAttack || Date.now() - unit.lastAttack > 1000) {
-            unit.lastAttack = Date.now();
-            window.Canvas.addAttackAnimation(unit, targetX, targetY);
-            if (closestTarget.type.name === "PlayerBase") {
-              const damageReduction = 1 - (window.GameState.baseDefenseUpgrades * 0.1);
-              const damageDealt = Math.max(1, Math.floor(Math.floor(unit.damage) * damageReduction));
-              window.GameState.baseHealth = Math.max(0, window.GameState.baseHealth - damageDealt);
-              window.UI.showDamageNumber(playerBaseX, playerBaseY, damageDealt, true);
-              console.log(`Enemy ${unit.type.name} attacked base: damage=${damageDealt}, baseHealth=${window.GameState.baseHealth}`);
-              if (window.GameState.baseHealth <= 0 && !window.GameState.gameOver) {
-                window.UI.showGameOverModal("Defeat!");
-                return;
-              }
-            } else {
-              closestTarget.hp = Math.max(0, Math.floor(closestTarget.hp - Math.floor(unit.damage)));
-              window.UI.showDamageNumber(closestTarget.x, closestTarget.y, Math.floor(unit.damage), true);
-            }
-          }
-        } else {
-          // Move toward the closest target
-          const dx = targetX - unit.x;
-          const dy = targetY - unit.y;
-          const distance = Math.sqrt(dx * dx + dy * dy);
-          const moveSpeed = unit.speed * (window.Canvas.canvas.width / 800) * 0.5; // Reduced from 0.7 to 0.5
-          console.log(`Enemy ${unit.type.name} moveSpeed: ${moveSpeed}`); // Debug log
 
-          // Smooth movement with velocity
-          const targetVelocityX = distance > moveSpeed ? (dx / distance) * moveSpeed : dx;
-          const targetVelocityY = distance > moveSpeed ? (dy / distance) * moveSpeed * 0.3 : dy * 0.3;
-          unit.velocityX += (targetVelocityX - unit.velocityX) * 0.05; // Reduced from 0.1 to 0.05
-          unit.velocityY += (targetVelocityY - unit.velocityY) * 0.05; // Reduced from 0.1 to 0.05
-  
-          // Stronger lane adherence, but softened
-          const laneCenterY = window.Canvas.canvas.height * 0.333 + unit.lane * (window.Canvas.canvas.height * 0.166);
-          const yDiff = laneCenterY - unit.y;
-          unit.velocityY += yDiff * 0.05; // Reduced from 0.1 to 0.05
-  
-          // Update position
-          unit.x += unit.velocityX;
-          unit.y += unit.velocityY;
-  
-          // Clamp position to canvas bounds
-          unit.y = Math.max(0, Math.min(window.Canvas.canvas.height - 30, unit.y));
-          unit.x = Math.max(0, Math.min(window.Canvas.canvas.width - 30, unit.x));
-        }
-        window.Canvas.drawUnit(unit);
-      }
-  
+
+      // --- Enemy Unit Update Loop ---
+       let gameOverTriggered = false;
+       for (let i = this.enemyUnits.length - 1; i >= 0; i--) {
+         // Check if unit still exists
+         if (!this.enemyUnits[i]) continue;
+         const unit = this.enemyUnits[i];
+         const updateResult = updateSingleUnit(unit, false, this.units, this.enemyUnits);
+         // Draw unit *after* its state is updated
+         window.Canvas.drawUnit(unit);
+         if (updateResult === 'GameOver') {
+             gameOverTriggered = true;
+             // Don't break here, let other units finish their *current* frame update/draw cycle
+             // The game over modal/state prevents further actions/frames anyway.
+         }
+       }
+       // If game over was triggered during enemy updates, stop further processing this frame
+       if (gameOverTriggered) {
+           console.log("Game Over detected during enemy update loop.");
+           // The gameOver modal should prevent the next frame request naturally.
+           return;
+       }
+
+
       window.Canvas.renderAnimations();
-  
-      // Handle enemy base destruction
+
+      // Handle enemy base destruction (Wave End)
       if (window.GameState.enemyBaseHealth <= 0 && !window.GameState.gameOver) {
         console.log(`Enemy base destroyed! Advancing to wave ${window.GameState.wave + 1}`);
         window.GameState.wave++;
         window.GameState.waveStarted = false;
         window.GameState.gold += 20 + Math.floor(window.GameState.wave * 2);
-        window.GameState.diamonds += 5;
-        window.GameState.enemyBaseHealth = 150;
-        this.units = [];
-        this.enemyUnits = [];
-        try {
-          localStorage.setItem('warriorDiamonds', window.GameState.diamonds);
-        } catch (e) {
-          console.error("Failed to save diamonds:", e);
-          window.UI.showFeedback("Warning: Unable to save progress.");
-        }
+        window.GameState.diamonds += 5; // Base diamond reward per wave clear
+        window.GameState.enemyBaseHealth = 150; // Reset enemy base health
+        this.units = []; // Clear remaining player units
+        this.enemyUnits = []; // Clear remaining enemy units
+        this.updateGrid(); // Clear grid
+        try { localStorage.setItem('warriorDiamonds', window.GameState.diamonds); }
+        catch (e) { console.error("Failed to save diamonds:", e); window.UI.showFeedback("Warning: Unable to save progress."); }
         window.UI.updateFooter();
-        window.UI.drawWaveProgress();
+        window.UI.drawWaveProgress(); // Update wave display immediately
+
         if (window.GameState.gameActive) {
-          this.spawnWave(window.GameState.wave);
-          window.UI.showFeedback(`Enemy base destroyed! Wave ${window.GameState.wave} started!`);
+           if (window.GameState.wave <= window.GameState.maxWaves) {
+               // Spawn next wave after a short delay for effect? Or immediately?
+               // setTimeout(() => { // Optional delay
+                   this.spawnWave(window.GameState.wave);
+                   window.UI.showFeedback(`Enemy base destroyed! Wave ${window.GameState.wave} started!`);
+               // }, 500); // 0.5 second delay example
+           } else {
+               window.UI.showGameOverModal("Victory!");
+               return; // Victory, stop update loop
+           }
         }
       }
-  
-      // Handle player base destruction
+
+      // Player base destruction check (redundant now, handled in updateSingleUnit, but safe)
       if (window.GameState.baseHealth <= 0 && !window.GameState.gameOver) {
-        window.UI.showGameOverModal("Defeat!");
-        return;
+        console.warn("Player base destroyed check in main loop triggered - should have been caught earlier.");
+        // Ensure game over state is set if somehow missed
+        if (!window.GameState.gameOver) window.UI.showGameOverModal("Defeat!");
+        return; // Stop update loop
       }
-  
-      // Always schedule the next frame unless game is over
+
+      // Schedule the next frame if the game isn't over
       if (!window.GameState.gameOver) {
         requestAnimationFrame(this.update.bind(this));
       }
+
     } catch (e) {
       console.error("Error in Units.update:", e);
-      window.UI.showFeedback("Game error occurred. Please restart.");
+      window.UI.showFeedback("Game error occurred. Please check console and consider restarting.");
       if (!window.GameState.gameOver) {
         requestAnimationFrame(this.update.bind(this));
       }
     }
-  };
+  }; // End of Units.update
+
 
   window.Units = Units;
 })();
+
+// --- END OF FILE units.js ---

@@ -4,7 +4,7 @@
   // Game State Variables
   GameState.wave = 1;
   GameState.waveStarted = false;
-  GameState.maxWaves = 50;
+  GameState.maxWaves = 20;
   GameState.gameActive = false;
   GameState.gamePaused = false;
   GameState.waveCooldown = false;
