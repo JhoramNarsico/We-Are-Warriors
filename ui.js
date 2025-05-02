@@ -11,7 +11,7 @@
   UI.gameOverModal = document.getElementById("gameOverModal");
   UI.gameOverMessage = document.getElementById("gameOverMessage");
   UI.gameOverWave = document.getElementById("gameOverWave");
-  UI.tutorialModal = document.getElementById("tutorialModal");
+  UI.tutorialModal = document.getElementById("tutorialModal"); // Make sure this is assigned
   UI.waveProgressBar = document.getElementById("waveProgressBar");
   UI.upgradesList = document.getElementById("upgradesList");
   UI.waveCooldownElement = document.getElementById("waveCooldown");
@@ -63,7 +63,6 @@
           if (!response.ok) {
             console.error(`Audio file not found: ${audio.path}`);
             this.showFeedback(`Audio file unavailable: ${audio.path.split("/").pop()}`);
-            // Don't mute, just log the error. Playback will fail naturally.
           } else {
             console.log(`Audio file found: ${audio.path}`);
           }
@@ -71,12 +70,11 @@
         .catch(e => {
           console.error(`Error checking audio file ${audio.path}:`, e);
           this.showFeedback("Audio files may not load correctly.");
-          // Don't mute, just log the error.
         });
     });
   };
 
-    // === ADDED BACKGROUND MUSIC FUNCTIONS ===
+    // === UPDATED Background Music Functions ===
     UI.playBackgroundMusic = function() {
         // Added check for undefined/null music element
         if (this.backgroundMusic && window.GameState.soundEnabled && !this.backgroundMusic.playing) {
@@ -105,8 +103,15 @@
     };
 
     UI.updateBackgroundMusicState = function() {
-        console.log(`Updating BG Music State: soundEnabled=${window.GameState.soundEnabled}, gameActive=${window.GameState.gameActive}, gamePaused=${window.GameState.gamePaused}, gameOver=${window.GameState.gameOver}`);
-        if (window.GameState.soundEnabled && window.GameState.gameActive && !window.GameState.gamePaused && !window.GameState.gameOver) {
+        // Determine if the tutorial is currently visible
+        const isTutorialVisible = this.tutorialModal && this.tutorialModal.style.display === 'flex';
+
+        console.log(`Updating BG Music State: soundEnabled=${window.GameState.soundEnabled}, gameActive=${window.GameState.gameActive}, gamePaused=${window.GameState.gamePaused}, gameOver=${window.GameState.gameOver}, tutorialVisible=${isTutorialVisible}`);
+
+        // Play music if sound is on AND (game is active/not paused/not over OR tutorial is visible)
+        if (window.GameState.soundEnabled &&
+            ( (window.GameState.gameActive && !window.GameState.gamePaused && !window.GameState.gameOver) || isTutorialVisible )
+           ) {
             this.playBackgroundMusic();
         } else {
             this.pauseBackgroundMusic();
@@ -255,10 +260,8 @@
   UI.showDamageNumber = function (x, y, amount, isPlayerTakingDamage) {
     if (!amount || amount <= 0) return;
 
-    // Play attack sound only for damage dealt *by* the player (i.e., enemy taking damage)
     if (window.GameState.soundEnabled && !isPlayerTakingDamage && this.attackSound) {
       console.log("Attempting to play audio from src:", this.attackSound.src);
-       // Create a new Audio object for each sound to allow overlap
       const attackAudio = new Audio(this.attackSound.src);
       attackAudio.volume = this.attackSound.volume;
       attackAudio.play().catch(e => console.error("Attack sound error:", e));
@@ -278,29 +281,25 @@
     const scaleX = window.Canvas.canvas.width / window.Canvas.canvas.offsetWidth;
     const scaleY = window.Canvas.canvas.height / window.Canvas.canvas.offsetHeight;
 
-    // Player base is at x=60; enemy base is at x=750
     let targetX = x;
-    // Adjust position slightly for base damage text to avoid overlap
-    const isEnemyBaseHit = !isPlayerTakingDamage && Math.abs(x - 740) < 10; // Enemy base around 740
-    const isPlayerBaseHit = isPlayerTakingDamage && Math.abs(x - 60) < 10; // Player base around 60
+    const isEnemyBaseHit = !isPlayerTakingDamage && Math.abs(x - 740) < 10;
+    const isPlayerBaseHit = isPlayerTakingDamage && Math.abs(x - 60) < 10;
 
     let left = (targetX / scaleX) + canvasRect.left;
-    let top = (y / scaleY) + canvasRect.top - 20; // Initial vertical position
+    let top = (y / scaleY) + canvasRect.top - 20;
 
     if (isEnemyBaseHit) {
-        left += 15; // Nudge enemy base damage text right
-        top -= 5;  // Nudge enemy base damage text up slightly
+        left += 15;
+        top -= 5;
         damageText.classList.add("enemy-base-damage");
     } else if (isPlayerBaseHit) {
-        left -= 15; // Nudge player base damage text left
-        top += 5;   // Nudge player base damage text down slightly
+        left -= 15;
+        top += 5;
         damageText.classList.add("player-base-damage");
     } else {
-        // Add random horizontal offset for unit damage
         left += (Math.random() - 0.5) * 10;
     }
 
-    // Ensure text stays within canvas bounds horizontally
     const textWidth = Math.min(50, 10 + damageText.textContent.length * 8);
     left = Math.max(canvasRect.left + 5, Math.min(left, canvasRect.right - textWidth - 5));
 
@@ -340,9 +339,9 @@
     window.GameState.gamePaused = true; // Explicitly pause
     window.Game.gameLoopRunning = false;
 
-    // === ADDED: Pause Music on Game Over ===
-    this.pauseBackgroundMusic();
-    // =====================================
+    // --- Ensure music state is updated on Game Over ---
+    this.updateBackgroundMusicState(); // Will pause music if needed
+    // --------------------------------------------------
 
     const shop = document.getElementById("shop");
     const toggleShopButton = document.getElementById("toggleShopButton");
@@ -392,68 +391,41 @@
   UI.showTutorial = function () {
     if (!this.tutorialModal) return;
 
+    console.log("Showing tutorial modal."); // Debug log
     this.tutorialModal.style.display = "flex";
     this.tutorialModal.classList.add("tutorial-animation");
 
+    // --- ADDED: Update music state when tutorial opens ---
+    this.updateBackgroundMusicState();
+    // ---------------------------------------------------
+
+    // Event listeners and slide logic are now primarily handled in events.js
+    // We just ensure the initial display and focus here.
+
+    // Initial slide setup (find the first slide and make it active)
     const slides = this.tutorialModal.querySelectorAll('.tutorial-slide');
     const prevButton = this.tutorialModal.querySelector('#tutorialPrevButton');
     const nextButton = this.tutorialModal.querySelector('#tutorialNextButton');
     const startButton = this.tutorialModal.querySelector('#startTutorialButton');
-    const loadButton = this.tutorialModal.querySelector('#loadGameButton'); // Assuming this button exists
-    let currentSlide = 0;
+    const loadButton = this.tutorialModal.querySelector('#loadGameButton');
     const totalSlides = slides.length;
 
-    const updateSlide = () => {
-      slides.forEach((slide, index) => {
-        slide.classList.toggle('active', index === currentSlide);
-      });
-      prevButton.disabled = currentSlide === 0;
-      nextButton.style.display = currentSlide === totalSlides - 1 ? 'none' : 'inline-block';
-      startButton.style.display = currentSlide === totalSlides - 1 ? 'inline-block' : 'none';
-      // Show load button only on the last slide if a saved game exists
-      if (loadButton) {
-          const hasSave = localStorage.getItem('warriorGameState') !== null;
-          loadButton.style.display = (currentSlide === totalSlides - 1 && hasSave) ? 'inline-block' : 'none';
-      }
-    };
-
-    if (prevButton) {
-        prevButton.addEventListener('click', () => {
-            if (currentSlide > 0) {
-                currentSlide--;
-                updateSlide();
-            }
-        });
+    slides.forEach((slide, index) => {
+        slide.classList.toggle('active', index === 0); // Start on slide 0
+    });
+    if(prevButton) prevButton.disabled = true; // Start on first slide, prev disabled
+    if(nextButton) nextButton.style.display = totalSlides > 1 ? 'inline-block' : 'none';
+    if(startButton) startButton.style.display = 'none'; // Hide initially
+    if(loadButton) { // Hide initially
+      loadButton.style.display = 'none';
     }
 
-    if (nextButton) {
-        nextButton.addEventListener('click', () => {
-            if (currentSlide < totalSlides - 1) {
-                currentSlide++;
-                updateSlide();
-            }
-        });
-    }
-
-    // Assuming the loadGameButton exists and has the correct ID
-    if (loadButton) {
-      loadButton.addEventListener('click', () => {
-        window.UI.tutorialModal.style.display = "none";
-        window.GameState.initGame(true); // Load game
-        window.UI.showFeedback("Saved game loaded!");
-        window.UI.updateButtonStates();
-        // Update music state after loading
-        window.UI.updateBackgroundMusicState();
-      });
-    }
-
-
-    updateSlide();
-
+    // Focus the first interactive element for accessibility
     setTimeout(() => {
-      if(prevButton) prevButton.focus();
+        if (prevButton) prevButton.focus();
     }, 100);
   };
+
 
   UI.updateUnitSelectionUI = function () {
     const selectedTypeName = window.Units.selectedUnitType ? window.Units.selectedUnitType.name.toUpperCase() : null;
@@ -588,20 +560,25 @@
     const saveGameButton = document.getElementById("saveGameButton");
     const loadGameButton = document.getElementById("loadGameButton"); // Assumes exists in tutorial modal
     const surrenderPauseButton = document.getElementById("surrenderPauseButton");
+    const tutorialLoadButton = document.querySelector('#tutorialModal #loadGameButton'); // Specific tutorial load button
 
     // Core game controls
     if (fightButton) fightButton.disabled = window.GameState.gameActive || window.GameState.gameOver || window.GameState.waveCooldown;
     if (pauseButton) pauseButton.disabled = !window.GameState.gameActive || window.GameState.gameOver;
     if (surrenderButton) surrenderButton.disabled = !window.GameState.gameActive || window.GameState.gameOver;
     if (spawnButton) spawnButton.disabled = !window.GameState.gameActive || window.GameState.gamePaused || window.GameState.gameOver;
-    if (restartButton) restartButton.disabled = false; // Restart is almost always available unless mid-action?
+    if (restartButton) restartButton.disabled = false;
 
     // Pause menu controls
-    if (saveGameButton) saveGameButton.disabled = !window.GameState.gameActive || window.GameState.gameOver; // Should only be available when paused in active game?
-    if (surrenderPauseButton) surrenderPauseButton.disabled = !window.GameState.gameActive || window.GameState.gameOver; // Match footer surrender
+    if (saveGameButton) saveGameButton.disabled = !window.GameState.gameActive || window.GameState.gameOver;
+    if (surrenderPauseButton) surrenderPauseButton.disabled = !window.GameState.gameActive || window.GameState.gameOver;
 
     // Tutorial / Load controls
-    if (loadGameButton) loadGameButton.disabled = window.GameState.gameActive || window.GameState.gameOver; // Cannot load if game is active
+    // The display logic for tutorialLoadButton is handled in events.js updateTutorialView
+    // We just ensure it exists if we want to disable/enable it based on game state (but it's usually hidden anyway)
+    if (tutorialLoadButton) {
+         // tutorialLoadButton.disabled = window.GameState.gameActive || window.GameState.gameOver; // Generally not needed as it's hidden when game is active
+    }
 
     // Update Pause button text
     if (pauseButton) pauseButton.textContent = window.GameState.gamePaused ? "Resume" : "Pause";
@@ -611,14 +588,12 @@
 
 
   UI.updateKnightButtonState = function() {
-    // Ensure elements are available
     if (!this.knightButton) {
         this.knightButton = document.getElementById('knightButton');
         if (this.knightButton) {
             this.knightButtonTooltip = this.knightButton.querySelector('.tooltip');
         }
     }
-    // If still not found, exit
     if (!this.knightButton) {
       console.warn("Knight button not found in DOM.");
       return;
@@ -628,28 +603,25 @@
 
     this.knightButton.disabled = !isUnlocked;
     this.knightButton.classList.toggle('locked', !isUnlocked);
-    this.knightButton.classList.toggle('locked-unit', !isUnlocked); // Add/remove visual lock style
+    this.knightButton.classList.toggle('locked-unit', !isUnlocked);
 
     const existingOverlay = this.knightButton.querySelector('.lock-overlay');
     if (!isUnlocked) {
-        // Add lock overlay if it doesn't exist
         if (!existingOverlay) {
             const lockOverlay = document.createElement('div');
             lockOverlay.className = 'lock-overlay';
             lockOverlay.innerHTML = '🔒';
-            // Ensure overlay is appended correctly, maybe relative positioning on button needed in CSS
-            this.knightButton.style.position = 'relative'; // Ensure button is positioning context
+            this.knightButton.style.position = 'relative';
             lockOverlay.style.position = 'absolute';
             lockOverlay.style.top = '50%';
             lockOverlay.style.left = '50%';
             lockOverlay.style.transform = 'translate(-50%, -50%)';
-            lockOverlay.style.fontSize = '1.5em'; // Adjust size as needed
-            lockOverlay.style.pointerEvents = 'none'; // Make sure it doesn't block clicks
-            lockOverlay.style.zIndex = '1'; // Put it above button text slightly
+            lockOverlay.style.fontSize = '1.5em';
+            lockOverlay.style.pointerEvents = 'none';
+            lockOverlay.style.zIndex = '1';
             this.knightButton.appendChild(lockOverlay);
         }
     } else {
-        // Remove lock overlay if it exists
         if (existingOverlay) {
             this.knightButton.removeChild(existingOverlay);
         }
@@ -657,12 +629,10 @@
 
     this.knightButton.setAttribute('aria-label', `Select Knight unit${isUnlocked ? '' : ' (Locked)'}`);
 
-    // Update tooltip content
     if (this.knightButtonTooltip) {
       this.knightButtonTooltip.innerHTML = this.generateTooltip("Knight");
     }
 
-    // Update info panel if Knight is currently selected
     if (window.Units.selectedUnitType && window.Units.selectedUnitType.name === "Knight") {
       this.updateUnitInfoPanel();
     }

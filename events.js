@@ -3,7 +3,7 @@
 
   Events.init = function () {
 
-    // === ADDED: General Button Click Sound Listener ===
+    // === General Button Click Sound Listener ===
     const gameContainer = document.querySelector('.game-container');
     if (gameContainer) {
         gameContainer.addEventListener('click', (e) => {
@@ -18,11 +18,11 @@
     }
     // ===============================================
 
+    // Unit Selection Buttons
     window.UI.unitButtons.forEach(button => {
       button.addEventListener("click", () => {
         // Click sound handled by the general listener above
         const unitType = button.dataset.unit;
-        // Ensure Knight cannot be selected if locked, even if button somehow enabled
         if (unitType === "KNIGHT" && !window.GameState.isKnightUnlocked) {
             window.UI.showFeedback("Knight is locked! Unlock in the Shop.");
             return;
@@ -35,6 +35,7 @@
       });
     });
 
+    // Spawn Button
     const spawnButton = document.getElementById("spawnButton");
     if (spawnButton) {
       spawnButton.addEventListener("click", () => {
@@ -45,15 +46,16 @@
       console.error("Spawn button not found!");
     }
 
+    // Keydown Spawn (Space)
     document.addEventListener("keydown", (e) => {
       if (e.code === "Space" && window.GameState.gameActive && !window.GameState.gamePaused && !window.GameState.gameOver) {
         e.preventDefault();
-        // No sound for keydown spawn, but could add one if desired
+        // No sound for keydown spawn
         window.Units.spawnUnit();
       }
     });
 
-    // Add hotkeys for unit selection (1: Barbarian, 2: Archer, 3: Horse, 4: Knight)
+    // Keydown Unit Selection (Digits 1-4)
     document.addEventListener("keydown", (e) => {
       if (window.GameState.gamePaused || window.GameState.gameOver) return;
 
@@ -67,7 +69,6 @@
       }
 
       if (unitType === "KNIGHT" && !window.GameState.isKnightUnlocked) {
-        // No sound for feedback messages
         window.UI.showFeedback("Knight is locked! Unlock in the Shop.");
         return;
       }
@@ -84,6 +85,7 @@
       }
     });
 
+    // Fight Button
     const fightButton = document.getElementById("fightButton");
     if (!fightButton) {
       console.error("Fight button not found!");
@@ -99,25 +101,22 @@
             return;
           }
           if (window.GameState.gameOver) {
-            window.GameState.initGame(); // Start a new game session
+            window.GameState.initGame();
             window.UI.gameOverModal.style.display = "none";
-            window.Game.gameLoopRunning = false; // Ensure loop isn't running yet
+            window.Game.gameLoopRunning = false;
             window.UI.showFeedback("Starting new battle!");
-            // Do NOT start wave/music here, wait for next click on Fight
-            window.UI.updateButtonStates(); // Update buttons for the fresh state
+            window.UI.updateButtonStates();
             window.UI.updateBackgroundMusicState(); // Ensure music is off
-            return; // Prevent starting wave immediately after restart
+            return;
           }
           if (!window.GameState.gameActive && !window.GameState.waveCooldown) {
             window.GameState.gameActive = true;
-            window.GameState.gamePaused = false; // Ensure not paused when starting
+            window.GameState.gamePaused = false;
             window.Units.spawnWave(window.GameState.wave);
             window.UI.updateButtonStates();
             window.Game.startGameUpdateLoop();
             window.UI.showFeedback("Battle started!");
-            // === ADDED: Update Music State ===
-            window.UI.updateBackgroundMusicState();
-            // =================================
+            window.UI.updateBackgroundMusicState(); // Start music
           } else {
             console.log("Cannot start: gameActive or waveCooldown is true");
             window.UI.showFeedback("Cannot start battle: Game already active or wave cooldown active!");
@@ -129,6 +128,7 @@
       });
     }
 
+    // Pause Button
     const pauseButton = document.getElementById("pauseButton");
     if (pauseButton) {
       pauseButton.addEventListener("click", () => {
@@ -139,39 +139,37 @@
           window.UI.pauseButton.textContent = window.GameState.gamePaused ? "Resume" : "Pause";
           window.UI.showFeedback(window.GameState.gamePaused ? "Game paused" : "Game resumed");
           window.UI.updateButtonStates();
-          // === ADDED: Update Music State ===
-          window.UI.updateBackgroundMusicState();
-          // =================================
+          window.UI.updateBackgroundMusicState(); // Update Music State
         }
       });
     }
 
+    // Surrender Button (Footer)
     const surrenderButton = document.getElementById("surrenderButton");
     if (surrenderButton) {
       surrenderButton.addEventListener("click", () => {
         // Click sound handled by the general listener above
         if (window.GameState.gameActive && !window.GameState.gameOver) {
-          window.UI.showGameOverModal("Surrendered!");
-           // Music paused within showGameOverModal
+          window.UI.showGameOverModal("Surrendered!"); // Handles music pause
         }
       });
     }
 
+    // Restart Button (Footer)
     const restartButton = document.getElementById("restartButton");
     if (restartButton) {
       restartButton.addEventListener("click", () => {
         // Click sound handled by the general listener above
-        window.GameState.initGame(); // initGame will handle resetting state
+        window.GameState.initGame();
         window.UI.gameOverModal.style.display = "none";
         window.UI.pauseMenu.style.display = "none";
         window.UI.showFeedback("Game restarted!");
         window.UI.updateButtonStates();
-        // === ADDED: Update Music State (likely pause) ===
-        window.UI.updateBackgroundMusicState();
-        // ===============================================
+        window.UI.updateBackgroundMusicState(); // Ensure music stops/updates
       });
     }
 
+    // Sound Toggle Button
     const soundToggleButton = document.getElementById("soundToggleButton");
     if (soundToggleButton) {
       soundToggleButton.addEventListener("click", () => {
@@ -179,110 +177,93 @@
         window.GameState.soundEnabled = !window.GameState.soundEnabled;
         soundToggleButton.textContent = `Sound: ${window.GameState.soundEnabled ? "On" : "Off"}`;
         window.UI.showFeedback(`Sound ${window.GameState.soundEnabled ? "enabled" : "disabled"}`);
-        // === ADDED: Update Music State ===
-        window.UI.updateBackgroundMusicState();
-        // =================================
+        window.UI.updateBackgroundMusicState(); // Update Music State
       });
     }
 
+    // Resume Button (Pause Menu)
     const resumeButton = document.getElementById("resumeButton");
     if (resumeButton) {
       resumeButton.addEventListener("click", () => {
-        // Click sound handled by the general listener above
-        if (!window.GameState.gameOver) { // Ensure game isn't over when resuming
+        window.UI.playButtonClickSound(); // Explicit sound for pause menu button
+        if (!window.GameState.gameOver) {
             window.GameState.gamePaused = false;
             window.UI.pauseMenu.style.display = "none";
             window.UI.pauseButton.textContent = "Pause";
             window.UI.showFeedback("Game resumed");
             window.UI.updateButtonStates();
-            // === ADDED: Update Music State ===
-            window.UI.updateBackgroundMusicState();
-            // =================================
+            window.UI.updateBackgroundMusicState(); // Ensure music resumes
         }
       });
     }
 
-
+    // Toggle Shop Button
     const toggleShopButton = document.getElementById("toggleShopButton");
     if (toggleShopButton) {
       toggleShopButton.addEventListener("click", () => {
         // Click sound handled by the general listener above
         const shop = document.getElementById("shop");
-        const willShow = shop.style.display === "none"; // Check if shop is currently hidden
-        shop.style.display = willShow ? "block" : "none"; // Toggle display
-        toggleShopButton.textContent = willShow ? "Hide Shop" : "Show Shop"; // Update button text
-        window.UI.showFeedback(willShow ? "Shop shown" : "Shop hidden"); // Feedback based on action
+        const willShow = shop.style.display === "none";
+        shop.style.display = willShow ? "block" : "none";
+        toggleShopButton.textContent = willShow ? "Hide Shop" : "Show Shop";
+        window.UI.showFeedback(willShow ? "Shop shown" : "Shop hidden");
       });
     }
 
+    // Surrender Button (Pause Menu)
     const surrenderPauseButton = document.getElementById("surrenderPauseButton");
     if (surrenderPauseButton) {
       surrenderPauseButton.addEventListener("click", () => {
-        // Click sound handled by the general listener above
+        window.UI.playButtonClickSound(); // Explicit sound for pause menu button
         if (window.GameState.gameActive && !window.GameState.gameOver) {
-            window.UI.showGameOverModal("Surrendered!"); // Music paused within showGameOverModal
+            window.UI.showGameOverModal("Surrendered!"); // Handles music pause
             window.UI.pauseMenu.style.display = "none";
         }
       });
     }
 
-
+    // Game Over Restart Button
     const gameOverRestartButton = document.getElementById("gameOverRestartButton");
     if (gameOverRestartButton) {
       gameOverRestartButton.addEventListener("click", () => {
-        // Click sound handled by the general listener above
-        window.GameState.initGame(); // initGame handles reset
+        window.UI.playButtonClickSound(); // Explicit sound for game over button
+        window.GameState.initGame();
         window.UI.gameOverModal.style.display = "none";
         window.UI.showFeedback("Game restarted!");
         window.UI.updateButtonStates();
-        // === ADDED: Update Music State (likely pause) ===
-        window.UI.updateBackgroundMusicState();
-        // ===============================================
+        window.UI.updateBackgroundMusicState(); // Ensure music stops/updates
       });
     }
 
+    // Game Over Shop Button
     const gameOverShopButton = document.getElementById("gameOverShopButton");
     if (gameOverShopButton) {
       gameOverShopButton.addEventListener("click", () => {
-        // Click sound handled by general listener
+        window.UI.playButtonClickSound(); // Explicit sound for game over button
         window.UI.gameOverModal.style.display = "none";
         document.getElementById("shop").style.display = "block";
-        document.getElementById("toggleShopButton").textContent = "Hide Shop"; // Ensure button text sync
+        document.getElementById("toggleShopButton").textContent = "Hide Shop";
         window.Shop.updateShop();
         window.UI.showFeedback("Shop opened");
       });
     }
 
-    const startTutorialButton = document.getElementById("startTutorialButton");
-    if (startTutorialButton) {
-      startTutorialButton.addEventListener("click", () => {
-        // Click sound handled by the general listener above
-        window.UI.tutorialModal.style.display = "none";
-        window.GameState.initGame(); // Resets state for a new game
-        window.UI.showFeedback("Tutorial completed! Ready to fight!");
-        window.UI.updateButtonStates();
-        // === ADDED: Update Music State (likely pause) ===
-         window.UI.updateBackgroundMusicState();
-        // ===============================================
-      });
-    }
-
-
+    // Save Game Button (Pause Menu)
     const saveGameButton = document.getElementById("saveGameButton");
     if (saveGameButton) {
       saveGameButton.addEventListener("click", () => {
-        // Click sound handled by the general listener above
+        window.UI.playButtonClickSound(); // Explicit sound for pause menu button
         window.GameState.saveGame();
         // No change to music state needed for saving
-        //window.UI.updateButtonStates(); // Update button states in case saving disables it? (Not needed here)
-        window.UI.showFeedback("Game progress saved!"); // Give feedback
+        window.UI.showFeedback("Game progress saved!");
       });
     }
 
+    // New Game Button (Pause Menu)
     const newGameButton = document.getElementById("newGameButton");
     if (newGameButton) {
       newGameButton.addEventListener("click", () => {
-        // Click sound handled by the general listener above
+        window.UI.playButtonClickSound(); // Explicit sound for pause menu button
         if (confirm("Are you sure you want to start a new game? All progress will be lost.")) {
           window.GameState.resetGame(); // resetGame calls initGame
           window.UI.pauseMenu.style.display = "none";
@@ -294,40 +275,143 @@
           window.UI.updateUpgradesDisplay();
           window.Shop.updateShop();
           window.UI.drawWaveProgress();
-           // === ADDED: Update Music State (likely pause) ===
-          window.UI.updateBackgroundMusicState();
-         // ===============================================
+          window.UI.updateBackgroundMusicState(); // Ensure music stops/updates
         }
       });
     }
 
+
+    // === Tutorial Modal Button Listeners & Logic ===
+    const tutorialModal = document.getElementById('tutorialModal');
+
+    if (tutorialModal) {
+        const tutorialPrevButton = tutorialModal.querySelector("#tutorialPrevButton");
+        const tutorialNextButton = tutorialModal.querySelector("#tutorialNextButton");
+        const startTutorialButton = tutorialModal.querySelector("#startTutorialButton");
+        const loadGameButton = tutorialModal.querySelector("#loadGameButton");
+        const slides = tutorialModal.querySelectorAll('.tutorial-slide');
+        const totalSlides = slides.length;
+        let currentSlideIndex = 0; // Track index within this scope
+
+        // Function to update the tutorial view (slides and buttons)
+        const updateTutorialView = () => {
+            slides.forEach((slide, index) => {
+                slide.classList.toggle('active', index === currentSlideIndex);
+                // Ensure data-slide attribute matches index for potential future use
+                slide.dataset.slide = index;
+            });
+            if (tutorialPrevButton) tutorialPrevButton.disabled = currentSlideIndex === 0;
+            if (tutorialNextButton) tutorialNextButton.style.display = currentSlideIndex === totalSlides - 1 ? 'none' : 'inline-block';
+            if (startTutorialButton) startTutorialButton.style.display = currentSlideIndex === totalSlides - 1 ? 'inline-block' : 'none';
+            if (loadGameButton) {
+                const hasSave = localStorage.getItem('warriorGameState') !== null;
+                loadGameButton.style.display = (currentSlideIndex === totalSlides - 1 && hasSave) ? 'inline-block' : 'none';
+            }
+        };
+
+        // Previous Button Listener
+        if (tutorialPrevButton) {
+            tutorialPrevButton.addEventListener("click", () => {
+                window.UI.playButtonClickSound();
+                if (currentSlideIndex > 0) {
+                    currentSlideIndex--;
+                    updateTutorialView();
+                }
+            });
+        } else { console.warn("Tutorial Prev button not found."); }
+
+        // Next Button Listener
+        if (tutorialNextButton) {
+            tutorialNextButton.addEventListener("click", () => {
+                window.UI.playButtonClickSound();
+                if (currentSlideIndex < totalSlides - 1) {
+                   currentSlideIndex++;
+                   updateTutorialView();
+                }
+            });
+        } else { console.warn("Tutorial Next button not found."); }
+
+        // Start New Game Button Listener
+        if (startTutorialButton) {
+          startTutorialButton.addEventListener("click", () => {
+            window.UI.playButtonClickSound(); // Play sound FIRST
+            window.UI.tutorialModal.style.display = "none";
+            window.GameState.initGame(); // Resets state for a new game
+            window.UI.showFeedback("Tutorial completed! Ready to fight!");
+            window.UI.updateButtonStates();
+            window.UI.updateBackgroundMusicState(); // Update music state AFTER closing modal
+            // Reset slide index for next time tutorial opens
+            currentSlideIndex = 0;
+          });
+        } else { console.warn("Start Tutorial button not found."); }
+
+        // Load Game Button Listener
+        if (loadGameButton) {
+          loadGameButton.addEventListener('click', () => {
+            window.UI.playButtonClickSound(); // Play sound FIRST
+            window.UI.tutorialModal.style.display = "none";
+            window.GameState.initGame(true); // Load game
+            window.UI.showFeedback("Saved game loaded!");
+            // Update all relevant UI elements after loading
+            window.UI.updateButtonStates();
+            window.UI.updateFooter();
+            window.UI.updateUnitSelectionUI();
+            window.UI.updateUnitInfoPanel();
+            window.UI.updateUpgradesDisplay();
+            window.Shop.updateShop();
+            window.UI.drawWaveProgress();
+            window.UI.updateKnightButtonState();
+            window.UI.updateBackgroundMusicState(); // Update music state AFTER closing modal and loading state
+            console.log("Load Game button clicked from tutorial.");
+             // Reset slide index for next time tutorial opens
+            currentSlideIndex = 0;
+          });
+        } else {
+          console.warn("Load Game button not found in tutorial modal.");
+        }
+
+        // Note: updateTutorialView() is called initially by UI.showTutorial() when it makes the modal visible
+
+    } else {
+        console.warn("Tutorial modal element not found. Listeners not added.");
+    }
+    // ==========================================
+
+
+    // Keydown Escape Listener (Pause/Resume/Close Menus)
     document.addEventListener("keydown", (e) => {
-      if (e.code === "Escape" && !window.GameState.gameOver) { // Allow pause even if game not active yet
-          if (window.GameState.gameActive) { // Only toggle if game is actually active
+      if (e.code === "Escape" && !window.GameState.gameOver) {
+          if (window.GameState.gameActive) { // Toggle pause if game is active
             // No sound for keydown pause/resume
             window.GameState.gamePaused = !window.GameState.gamePaused;
             window.UI.pauseMenu.style.display = window.GameState.gamePaused ? "flex" : "none";
             window.UI.pauseButton.textContent = window.GameState.gamePaused ? "Resume" : "Pause";
             window.UI.showFeedback(window.GameState.gamePaused ? "Game paused" : "Game resumed");
             window.UI.updateButtonStates();
-            // === ADDED: Update Music State ===
-            window.UI.updateBackgroundMusicState();
-            // =================================
-          } else if (window.UI.pauseMenu.style.display === 'flex') {
-              // If pause menu is shown but game not active (e.g. after restart), Esc should hide it
+            window.UI.updateBackgroundMusicState(); // Update Music State
+          } else if (window.UI.pauseMenu.style.display === 'flex') { // Close pause menu if open but game not active
               window.UI.pauseMenu.style.display = 'none';
               window.UI.showFeedback("Menu closed");
+              // No music change needed here
+          } else if (window.UI.tutorialModal && window.UI.tutorialModal.style.display === 'flex') { // Close tutorial modal if open
+              window.UI.tutorialModal.style.display = 'none';
+              window.UI.showFeedback("Tutorial closed");
+              window.UI.updateBackgroundMusicState(); // Stop tutorial music if it was playing
           }
       }
     });
 
 
-    if (window.Canvas.canvas) {
+    // Prevent Canvas Context Menu
+    if (window.Canvas && window.Canvas.canvas) {
       window.Canvas.canvas.addEventListener("contextmenu", (e) => {
         e.preventDefault();
       });
+    } else {
+        console.warn("Canvas element not found for context menu listener.")
     }
-  };
+
+  }; // End of Events.init
 
   window.Events = Events;
 })();

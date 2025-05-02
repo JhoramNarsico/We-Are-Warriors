@@ -39,7 +39,9 @@
                     <span class="tooltip"></span>
                 </button>
             </div>
-            <div id="unitInfoPanel"></div>
+            <div id="unitInfoPanel">
+                <!-- Content dynamically added by ui.js -->
+            </div>
         </div>
         <div class="canvas-container">
             <canvas id="gameCanvas"></canvas>
@@ -48,6 +50,7 @@
         <div class="sidebar-right">
             <div class="shop" id="shop">
                 <h3>Upgrades</h3>
+                 <!-- Content dynamically added by shop.js -->
             </div>
             <button id="toggleShopButton" class="control-button">Show Shop</button>
         </div>
@@ -63,11 +66,13 @@
     <div id="pauseMenu">
         <div>
             <h2>Paused</h2>
-            <div id="upgradesList"></div>
+            <div id="upgradesList">
+                 <!-- Content dynamically added by ui.js -->
+            </div>
             <button id="resumeButton" class="control-button">Resume</button>
             <button id="saveGameButton" class="control-button">Save Game</button>
             <button id="newGameButton" class="control-button">New Game</button>
-            <button id="surrenderPauseButton" class="control-button">Surrender</button> <!-- Added missing button from your structure -->
+            <button id="surrenderPauseButton" class="control-button">Surrender</button>
         </div>
     </div>
     <div id="gameOverModal">
@@ -78,47 +83,58 @@
             <button id="gameOverShopButton" class="control-button">Shop</button>
         </div>
     </div>
+
+    <!-- Updated Tutorial Modal -->
     <div id="tutorialModal">
         <div class="tutorial-content">
             <h2>Welcome to Warrior Defense!</h2>
+            <p>Prepare for battle! Your goal is to defend your base while leading your warriors to destroy the enemy stronghold.</p>
             <div class="tutorial-carousel">
                 <div class="tutorial-slide active" data-slide="0">
-                    <h3>Objective</h3>
-                    <p>Protect your base from enemy waves while destroying the enemy base. Survive all waves to win!</p>
+                    <h3>⚔️ Objective & Winning</h3>
+                    <p>Protect your blue base (left) from incoming enemy waves (red, right).</p>
+                    <p>Destroy the enemy's red base to clear the current wave and advance.</p>
+                    <p>Survive all <strong>20 waves</strong> to claim ultimate victory!</p>
+                    <p>If your base's health reaches zero, the battle is lost.</p>
                 </div>
                 <div class="tutorial-slide" data-slide="1">
-                    <h3>Resources</h3>
-                    <p><strong>Gold (💰):</strong> Earned over time and from defeating enemies. Use to spawn units.</p>
-                    <p><strong>Diamonds (💎):</strong> Earned from enemy kills and wave completion. Spend in the shop for upgrades.</p>
+                    <h3>💰 Resources 💎</h3>
+                    <p><strong>Gold (💰):</strong> Earned slowly over time during waves and by defeating enemies. Spend gold to <strong>Spawn Units</strong>.</p>
+                    <p><strong>Diamonds (💎):</strong> Earned from enemy kills and clearing waves. Spend diamonds in the <strong>Shop</strong> for permanent upgrades.</p>
                 </div>
                 <div class="tutorial-slide" data-slide="2">
-                    <h3>Units</h3>
-                    <p>Select a unit type (Barbarian, Archer, Horse, Knight) from the left sidebar.</p>
-                    <p>Click "Spawn Unit" or press <strong>Spacebar</strong> to deploy the selected unit (costs gold).</p>
-                    <p>Units fight automatically, targeting enemies or the enemy base.</p>
+                    <h3>🛡️ Units & Spawning</h3>
+                    <p>Select a unit type (Barbarian, Archer, Horse, Knight) from the left sidebar using the buttons or number keys (<strong>1, 2, 3, 4</strong>).</p>
+                    <p>Click the <strong>Spawn Unit</strong> button or press <strong>Spacebar</strong> to deploy the selected unit from your base (costs 💰 Gold).</p>
+                    <p>Your warriors will automatically advance and fight nearby enemies or attack the enemy base.</p>
+                    <p>Check the Unit Info Panel (below unit buttons) for stats!</p>
                 </div>
                 <div class="tutorial-slide" data-slide="3">
-                    <h3>Shop & Upgrades</h3>
-                    <p>Access the shop (right sidebar) to spend diamonds on upgrades:</p>
+                    <h3>🛒 Shop & Upgrades ✨</h3>
+                    <p>Access the <strong>Shop</strong> (right sidebar) to spend your hard-earned Diamonds (💎) on powerful, permanent upgrades:</p>
                     <ul>
-                        <li><strong>Base Health/Defense:</strong> Strengthen your base.</li>
-                        <li><strong>Unit Health/Damage:</strong> Boost all units.</li>
-                        <li><strong>Gold Production:</strong> Earn gold faster.</li>
-                        <li><strong>Unlock Knight:</strong> Access the powerful Knight unit.</li>
+                        <li><strong>Base Health/Defense:</strong> Make your base tougher.</li>
+                        <li><strong>Unit Health/Damage:</strong> Strengthen all your warriors.</li>
+                        <li><strong>Gold Production:</strong> Earn Gold (💰) faster during waves.</li>
+                        <li><strong>Unlock Knight:</strong> Gain access to the mighty Knight unit!</li>
                     </ul>
+                    <p>Upgrades are crucial for surviving later waves!</p>
                 </div>
                 <div class="tutorial-slide" data-slide="4">
-                    <h3>Waves & Combat</h3>
-                    <p>Click "Fight!" to start a wave. Enemies spawn from the right.</p>
-                    <p>Destroy the enemy base to advance to the next wave.</p>
-                    <p>If your base's health reaches zero, you lose.</p>
+                    <h3>🌊 Waves & Combat</h3>
+                    <p>When ready, click the <strong>Fight!</strong> button to start the next wave. Enemies will spawn from the right side.</p>
+                    <p>Manage your Gold (💰) to spawn units strategically throughout the wave.</p>
+                    <p>Destroy the enemy base to end the wave, earn rewards, and prepare for the next challenge.</p>
                 </div>
                 <div class="tutorial-slide" data-slide="5">
-                    <h3>Controls</h3>
-                    <p><strong>Pause:</strong> Click "Pause" or press <strong>Esc</strong>.</p>
-                    <p><strong>Surrender/Restart:</strong> Use buttons in the footer.</p>
-                    <p><strong>Sound:</strong> Toggle with the sound button in the header.</p>
-                    <p><strong>Save/Load:</strong> Use pause or game over menu to save or load progress.</p>
+                    <h3>⌨️ Controls & Saving</h3>
+                    <p><strong>Pause/Resume:</strong> Click "Pause/Resume" or press <strong>Esc</strong>.</p>
+                    <p><strong>Spawn Unit:</strong> Click "Spawn Unit" or press <strong>Spacebar</strong>.</p>
+                    <p><strong>Select Unit:</strong> Click buttons or press <strong>1, 2, 3, 4</strong>.</p>
+                    <p><strong>Sound:</strong> Toggle with the sound button (top right).</p>
+                    <p><strong>Save/Load:</strong> Save your progress via the Pause Menu. The game attempts to auto-load on startup if a save exists. You can also load from this tutorial if a save is found!</p>
+                    <p><strong>New Game/Restart:</strong> Use buttons in Pause Menu or Footer.</p>
+                    <p><strong>Good luck, Commander!</strong></p>
                 </div>
             </div>
             <div class="tutorial-navigation">
@@ -136,18 +152,17 @@
     <audio id="winSound" src="./sounds/win.mp3"></audio>
     <audio id="loseSound" src="./sounds/lose.mp3"></audio>
 
-    <!-- === ADDED AUDIO === -->
+    <!-- Added Audio -->
     <audio id="backgroundMusic" src="./sounds/background_music.mp3" loop></audio>
     <audio id="buttonClickSound" src="./sounds/button_click.mp3"></audio>
-    <!-- =================== -->
 
     <!-- Scripts -->
     <script src="gameState.js"></script>
     <script src="canvas.js"></script>
     <script src="units.js"></script>
-    <script src="ui.js"></script>
+    <script src="ui.js"></script> <!-- Load UI script -->
     <script src="shop.js"></script>
-    <script src="events.js"></script>
+    <script src="events.js"></script> <!-- Load Events script -->
     <script src="game.js"></script>
 </body>
 </html>
