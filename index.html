@@ -67,6 +67,7 @@
             <button id="resumeButton" class="control-button">Resume</button>
             <button id="saveGameButton" class="control-button">Save Game</button>
             <button id="newGameButton" class="control-button">New Game</button>
+            <button id="surrenderPauseButton" class="control-button">Surrender</button> <!-- Added missing button from your structure -->
         </div>
     </div>
     <div id="gameOverModal">
@@ -128,10 +129,19 @@
             </div>
         </div>
     </div>
+
+    <!-- Existing Audio -->
     <audio id="spawnSound" src="./sounds/spawn.mp3"></audio>
     <audio id="attackSound" src="./sounds/attack.mp3"></audio>
     <audio id="winSound" src="./sounds/win.mp3"></audio>
     <audio id="loseSound" src="./sounds/lose.mp3"></audio>
+
+    <!-- === ADDED AUDIO === -->
+    <audio id="backgroundMusic" src="./sounds/background_music.mp3" loop></audio>
+    <audio id="buttonClickSound" src="./sounds/button_click.mp3"></audio>
+    <!-- =================== -->
+
+    <!-- Scripts -->
     <script src="gameState.js"></script>
     <script src="canvas.js"></script>
     <script src="units.js"></script>

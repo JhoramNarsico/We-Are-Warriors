@@ -14,7 +14,7 @@
     window.Canvas.resizeCanvas();
 
     // 4. Initialize UI Elements and States
-    window.UI.checkAudioFiles();
+    window.UI.checkAudioFiles(); // Check new audio files
     window.UI.updateFooter();
     window.UI.updateButtonStates();
     window.UI.updateKnightButtonState();
@@ -23,13 +23,16 @@
     window.UI.updateUnitInfoPanel();
     window.UI.updateUpgradesDisplay();
     window.UI.drawWaveProgress();
+    // === ADDED: Ensure initial music state is correct (off) ===
+    window.UI.updateBackgroundMusicState();
+    // ========================================================
 
     // 5. Initialize Shop
     if (window.Shop && window.Shop.updateShop) {
       const shop = document.getElementById("shop");
       shop.style.display = "none"; // Explicitly hide shop on init
       const toggleShopButton = document.getElementById("toggleShopButton");
-      toggleShopButton.textContent = "Show Shop"; // Ensure button text is correct
+      if(toggleShopButton) toggleShopButton.textContent = "Show Shop"; // Ensure button text is correct
       window.Shop.updateShop();
     } else {
       console.error("Shop module not loaded or updateShop function missing!");
@@ -39,8 +42,15 @@
     // 6. Initialize Event Listeners
     window.Events.init();
 
-    // 7. Show Tutorial
-    window.UI.showTutorial();
+    // 7. Show Tutorial (Only if NO saved game exists)
+    if (!hasSavedGame) {
+        window.UI.showTutorial();
+    } else {
+        // If loaded game, ensure tutorial is hidden
+        if (window.UI.tutorialModal) window.UI.tutorialModal.style.display = 'none';
+        console.log("Skipping tutorial due to saved game.");
+    }
+
 
     console.log("Game initialization complete.");
   };
@@ -52,10 +62,10 @@
     }
     console.log("Starting game update loop");
     this.gameLoopRunning = true;
-    window.Units.update();
+    window.Units.update(); // Start the first frame
   };
 
-  Game.gameLoopRunning = false;
+  Game.gameLoopRunning = false; // Track if the loop is active
 
   window.addEventListener("load", () => {
     Game.init();
