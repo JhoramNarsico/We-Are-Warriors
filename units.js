@@ -1,183 +1,158 @@
 // --- START OF FILE units.js ---
-
 (function () {
   const Units = {};
 
-  // Define base stats including attack range and speed (cooldown in ms)
-  Units.BASE_ENEMY_STATS = {
-    // --- INCREASE attackSpeed values ---
-    BARBARIAN: { health: 15, damage: 3, speed: 0.8, reward: 2, attackRange: 35, attackSpeed: 1400 }, // Was 1000
-    ARCHER: { health: 8, damage: 6, speed: 1.0, reward: 3, attackRange: 150, attackSpeed: 1700 }, // Was 1200
-    HORSE: { health: 25, damage: 12, speed: 1.6, reward: 4, attackRange: 40, attackSpeed: 1300 }, // Was 900
-    KNIGHT: { health: 40, damage: 8, speed: 1.2, reward: 6, attackRange: 40, attackSpeed: 1600 } // Was 1100
+  // Define BASE stats (unchanged by upgrades)
+  Units.BASE_UNIT_STATS = {
+      BARBARIAN: { name: "Barbarian", health: 15, damage: 3, speed: 0.8, reward: 2, attackRange: 35, attackSpeed: 1400, color: "#3b5998", cost: 5, lore: "Fierce highland warriors with unbreakable spirit.", strengths: "Balanced fighter with solid health and damage." },
+      ARCHER:    { name: "Archer",    health: 8,  damage: 6, speed: 1.0, reward: 3, attackRange: 150, attackSpeed: 1700, color: "#28a745", cost: 8, lore: "Forest sharpshooters with deadly precision.", strengths: "High ranged damage." },
+      HORSE:     { name: "Horse",     health: 25, damage: 12, speed: 1.6, reward: 4, attackRange: 40, attackSpeed: 1300, color: "#dc3545", cost: 12, lore: "Swift warhorses bred for rapid strikes.", strengths: "Fast movement and strong attacks." },
+      KNIGHT:    { name: "Knight",    health: 40, damage: 8, speed: 1.2, reward: 6, attackRange: 40, attackSpeed: 1600, color: "#ffd700", cost: 15, lore: "Honored protectors in sacred armor.", strengths: "High health and damage for late waves." }
   };
 
+  // UNIT_TYPES now just references the base stats for easy access by name
   Units.UNIT_TYPES = {
-     // --- INCREASE attackSpeed values to match BASE_ENEMY_STATS ---
-    BARBARIAN: {
-      ...Units.BASE_ENEMY_STATS.BARBARIAN, // Inherits the increased attackSpeed
-      name: "Barbarian",
-      color: "#3b5998",
-      cost: 5,
-      lore: "Fierce highland warriors with unbreakable spirit.",
-      strengths: "Balanced fighter with solid health and damage."
-    },
-    ARCHER: {
-      ...Units.BASE_ENEMY_STATS.ARCHER, // Inherits the increased attackSpeed
-      name: "Archer",
-      color: "#28a745",
-      cost: 8,
-      lore: "Forest sharpshooters with deadly precision.",
-      strengths: "High ranged damage."
-    },
-    HORSE: {
-      ...Units.BASE_ENEMY_STATS.HORSE, // Inherits the increased attackSpeed
-      name: "Horse",
-      color: "#dc3545",
-      cost: 12,
-      lore: "Swift warhorses bred for rapid strikes.",
-      strengths: "Fast movement and strong attacks."
-    },
-    KNIGHT: {
-      ...Units.BASE_ENEMY_STATS.KNIGHT, // Inherits the increased attackSpeed
-      name: "Knight",
-      color: "#ffd700",
-      cost: 15,
-      lore: "Honored protectors in sacred armor.",
-      strengths: "High health and damage for late waves."
-    }
+      BARBARIAN: Units.BASE_UNIT_STATS.BARBARIAN,
+      ARCHER:    Units.BASE_UNIT_STATS.ARCHER,
+      HORSE:     Units.BASE_UNIT_STATS.HORSE,
+      KNIGHT:    Units.BASE_UNIT_STATS.KNIGHT
   };
+
+  // Enemies use the same base stats before scaling
+  Units.BASE_ENEMY_STATS = Units.BASE_UNIT_STATS;
 
   Units.units = [];
   Units.enemyUnits = [];
-  Units.selectedUnitType = Units.UNIT_TYPES.BARBARIAN;
+  Units.selectedUnitType = Units.UNIT_TYPES.BARBARIAN; // Default selection
 
+  // Grid system for optimizing nearby unit checks
   const GRID_CELL_SIZE = 50;
   const grid = new Map();
-  // --- NEW: Constants for Behavior Tuning ---
-  const SEPARATION_RADIUS_SQ = Math.pow(20, 2); // How close friendlies need to be to separate
-  const SEPARATION_FORCE = 0.08; // How strongly they push apart
-  const LANE_ADHERENCE_FORCE = 0.02; // How strongly they stick to lanes when moving
-  const BASE_TARGETING_BUFFER = 20; // Extra distance units will target base from
 
-  Units.getGridKey = function (x, y) {
-    const gridX = Math.floor(x / GRID_CELL_SIZE);
-    const gridY = Math.floor(y / GRID_CELL_SIZE);
-    return `${gridX},${gridY}`;
-  };
+  // Movement behavior constants
+  const SEPARATION_RADIUS_SQ = Math.pow(20, 2); // Squared distance for efficiency
+  const SEPARATION_FORCE = 0.08;
+  const LANE_ADHERENCE_FORCE = 0.02;
+  const BASE_TARGETING_BUFFER = 20; // Extra distance to target base
 
-  Units.updateGrid = function () {
-    grid.clear();
-    this.units.forEach((unit, index) => {
-      const key = this.getGridKey(unit.x, unit.y);
-      if (!grid.has(key)) grid.set(key, []);
-      grid.get(key).push({ unit, index, isAlly: true });
-      unit.lastGridKey = key;
-    });
-    this.enemyUnits.forEach((unit, index) => {
-      const key = this.getGridKey(unit.x, unit.y);
-      if (!grid.has(key)) grid.set(key, []);
-      grid.get(key).push({ unit, index, isAlly: false });
-      unit.lastGridKey = key;
-    });
-  };
+  // --- Grid Functions ---
+   Units.getGridKey = function (x, y) {
+       return `${Math.floor(x / GRID_CELL_SIZE)},${Math.floor(y / GRID_CELL_SIZE)}`;
+   };
 
-  // Modified to find EITHER opponents or friendlies based on `findOpposingUnits`
-  Units.getNearbyUnits = function (x, y, unitIsAlly, findOpposingUnits) {
-    const gridX = Math.floor(x / GRID_CELL_SIZE);
-    const gridY = Math.floor(y / GRID_CELL_SIZE);
-    const nearbyUnits = [];
-    for (let dx = -1; dx <= 1; dx++) {
-      for (let dy = -1; dy <= 1; dy++) {
-        const key = `${gridX + dx},${gridY + dy}`;
-        if (grid.has(key)) {
-          grid.get(key).forEach(entry => {
-            // If finding opponents, check isAlly is different
-            // If finding friendlies, check isAlly is the same
-            if (findOpposingUnits ? (entry.isAlly !== unitIsAlly) : (entry.isAlly === unitIsAlly)) {
-              nearbyUnits.push(entry);
-            }
-          });
-        }
-      }
-    }
-    return nearbyUnits;
-  };
-
-
-  try {
-    const savedDamage = localStorage.getItem('warriorUnitDamage');
-    if (savedDamage) {
-      const damage = JSON.parse(savedDamage);
-      // Update damage from upgrades, keep base range/speed
-      Units.UNIT_TYPES.BARBARIAN.damage = damage.barb || Units.BASE_ENEMY_STATS.BARBARIAN.damage;
-      Units.UNIT_TYPES.ARCHER.damage = damage.arch || Units.BASE_ENEMY_STATS.ARCHER.damage;
-      Units.UNIT_TYPES.HORSE.damage = damage.horse || Units.BASE_ENEMY_STATS.HORSE.damage;
-      Units.UNIT_TYPES.KNIGHT.damage = damage.knight || Units.BASE_ENEMY_STATS.KNIGHT.damage;
-    }
-  } catch (e) {
-    console.error("Failed to load unit damage upgrades:", e);
-  }
-
-  Units.getScaledEnemyStats = function (type, currentWave) {
-    const healthScale = Math.max(1, Math.pow(1.15, currentWave - 1));
-    const damageScale = Math.max(1, Math.pow(1.10, currentWave - 1));
-    const baseStats = this.BASE_ENEMY_STATS[type]; // Get base stats including range/speed
-    return {
-      ...baseStats, // Include base range and speed
-      health: Math.floor(baseStats.health * healthScale),
-      damage: Math.floor(baseStats.damage * damageScale),
-      reward: Math.floor(baseStats.reward + currentWave * 0.5)
-      // Speed and attackRange/attackSpeed remain constant (or could be scaled too if desired)
+   Units.updateGrid = function () {
+       grid.clear();
+        this.units.forEach((unit, index) => {
+          const key = this.getGridKey(unit.x, unit.y);
+          if (!grid.has(key)) grid.set(key, []);
+          grid.get(key).push({ unit, index, isAlly: true });
+          unit.lastGridKey = key;
+        });
+        this.enemyUnits.forEach((unit, index) => {
+          const key = this.getGridKey(unit.x, unit.y);
+          if (!grid.has(key)) grid.set(key, []);
+          grid.get(key).push({ unit, index, isAlly: false });
+          unit.lastGridKey = key;
+        });
     };
+
+   Units.getNearbyUnits = function (x, y, unitIsAlly, findOpposingUnits) {
+       const gridX = Math.floor(x / GRID_CELL_SIZE);
+        const gridY = Math.floor(y / GRID_CELL_SIZE);
+        const nearbyUnits = [];
+        // Check current cell and 8 surrounding cells
+        for (let dx = -1; dx <= 1; dx++) {
+          for (let dy = -1; dy <= 1; dy++) {
+            const key = `${gridX + dx},${gridY + dy}`;
+            if (grid.has(key)) {
+              grid.get(key).forEach(entry => {
+                // Filter based on whether we are looking for opponents or friendlies
+                if (findOpposingUnits ? (entry.isAlly !== unitIsAlly) : (entry.isAlly === unitIsAlly)) {
+                  nearbyUnits.push(entry);
+                }
+              });
+            }
+          }
+        }
+        return nearbyUnits;
+    };
+  // --- End Grid Functions ---
+
+
+  // --- REMOVED loading warriorUnitDamage locally - Damage calculated dynamically ---
+
+  // Calculate scaled enemy stats for a given wave
+  Units.getScaledEnemyStats = function (typeKey, currentWave) {
+      const healthScale = Math.max(1, Math.pow(1.15, currentWave - 1));
+      const damageScale = Math.max(1, Math.pow(1.10, currentWave - 1));
+      const baseStats = this.BASE_UNIT_STATS[typeKey]; // Use BASE stats
+
+      if (!baseStats) {
+           console.error(`Base stats not found for enemy type: ${typeKey}`);
+           // Return some default error state to prevent crashes
+           return { name: "ErrorUnit", health: 10, damage: 1, speed: 1, reward: 1, attackRange: 30, attackSpeed: 2000, color:"#ff0000", cost: 0, lore:"", strengths:"" };
+      }
+
+      return {
+          ...baseStats, // Include base range, speed, name, color etc.
+          health: Math.floor(baseStats.health * healthScale),
+          damage: Math.floor(baseStats.damage * damageScale), // Enemy damage scales
+          reward: Math.floor(baseStats.reward + currentWave * 0.5)
+      };
   };
 
+  // Spawn enemy wave
   Units.spawnWave = function (waveNum) {
-    // ... (spawn logic remains largely the same, but now units get attackRange/Speed from stats)
     if (!window.Canvas || !window.Canvas.canvas) {
       console.error("Canvas not initialized!");
-      window.UI.showFeedback("Error: Game canvas not available!");
+      if(window.UI) window.UI.showFeedback("Error: Game canvas not available!");
       return;
     }
     console.log(`Spawning wave ${waveNum}`);
     if (waveNum > window.GameState.maxWaves) {
-      window.UI.showGameOverModal("Victory!");
+      if(window.UI) window.UI.showGameOverModal("Victory!");
       return;
     }
 
     this.enemyUnits = [];
 
+    // Determine unit counts based on wave number
     const barbarianCount = 3 + Math.floor(waveNum / 2);
     const archerCount = Math.floor(waveNum / 3);
     const horseCount = Math.floor(waveNum / 4);
-    const knightCount = waveNum >= 10 ? Math.floor(waveNum / 10) : 0;
+    const knightCount = waveNum >= 10 ? Math.floor(waveNum / 10) : 0; // Knights appear later
 
+    // Define spawn area
     const spawnX = window.Canvas.canvas.width * 0.9;
-    const laneHeight = window.Canvas.canvas.height * 0.166;
-    const startY = window.Canvas.canvas.height * 0.333;
+    const laneHeight = window.Canvas.canvas.height * 0.166; // Divide height for lanes
+    const startY = window.Canvas.canvas.height * 0.333; // Start spawning below top third
+
 
     const createUnit = (typeKey, waveNum, laneIndex) => {
-        const stats = this.getScaledEnemyStats(typeKey, waveNum);
-        const lane = laneIndex % 3;
+        const stats = this.getScaledEnemyStats(typeKey, waveNum); // Gets scaled health/damage/reward + base everything else
+        const lane = laneIndex % 3; // Distribute units across 3 lanes
         const unit = {
-            x: spawnX + (Math.random() - 0.5) * 20,
-            y: startY + lane * laneHeight + (Math.random() - 0.5) * laneHeight * 0.5,
-            // --- Use combined type and scaled stats ---
-            type: { ...this.UNIT_TYPES[typeKey], ...stats }, // Ensure type includes everything
+            x: spawnX + (Math.random() - 0.5) * 20, // Slight horizontal variation
+            y: startY + lane * laneHeight + (Math.random() - 0.5) * laneHeight * 0.5, // Position within lane with variation
+            type: this.UNIT_TYPES[typeKey], // Store the BASE type reference
             hp: Math.floor(stats.health),
-            speed: stats.speed, // Use speed from stats
-            damage: Math.floor(stats.damage),
-            attackRange: stats.attackRange, // Use range from stats
-            attackSpeed: stats.attackSpeed, // Use speed from stats
-            maxHp: Math.floor(stats.health),
+            maxHp: Math.floor(stats.health), // Store initial scaled health as maxHp
+            // Use scaled stats for runtime
+            speed: stats.speed,
+            damage: Math.floor(stats.damage), // Scaled damage for enemy
+            attackRange: stats.attackRange,
+            attackSpeed: stats.attackSpeed,
+            reward: stats.reward, // Store reward on the unit instance
+            // Other properties
             opacity: 1,
             lane: lane,
-            lastAttack: null,
-            lastGridKey: null,
-            spawnTime: Date.now(),
-            velocityX: 0,
+            lastAttack: null, // Timestamp of last attack
+            lastGridKey: null, // Track grid cell
+            spawnTime: Date.now(), // For spawn animation/effects
+            velocityX: 0, // For smoother movement
             velocityY: 0
         };
+        // Clamp initial position to canvas bounds
         unit.y = Math.max(0, Math.min(window.Canvas.canvas.height - 30, unit.y));
         unit.x = Math.max(0, Math.min(window.Canvas.canvas.width - 30, unit.x));
         if (unit.x < 0 || unit.x > window.Canvas.canvas.width || unit.y < 0 || unit.y > window.Canvas.canvas.height) {
@@ -186,6 +161,7 @@
         return unit;
     };
 
+    // Spawn units based on calculated counts
     for (let i = 0; i < barbarianCount; i++) this.enemyUnits.push(createUnit("BARBARIAN", waveNum, i));
     for (let i = 0; i < archerCount; i++) this.enemyUnits.push(createUnit("ARCHER", waveNum, i));
     for (let i = 0; i < horseCount; i++) this.enemyUnits.push(createUnit("HORSE", waveNum, i));
@@ -194,43 +170,56 @@
 
     window.GameState.waveStarted = true;
     console.log(`Spawned ${this.enemyUnits.length} enemy units for wave ${waveNum}: Barbarians=${barbarianCount}, Archers=${archerCount}, Horses=${horseCount}, Knights=${knightCount}`);
-    window.UI.showFeedback(`Wave ${waveNum} started with ${this.enemyUnits.length} enemies!`);
-    this.updateGrid();
+    if(window.UI) window.UI.showFeedback(`Wave ${waveNum} started with ${this.enemyUnits.length} enemies!`);
+    this.updateGrid(); // Update grid after spawning
   };
 
+  // Spawn player unit
   Units.spawnUnit = function () {
-     // ... (spawn logic remains largely the same, but now units get attackRange/Speed from type)
-    if (!window.Canvas || !window.Canvas.canvas) {
-      console.error("Canvas not initialized!");
-      window.UI.showFeedback("Error: Game canvas not available!");
-      return;
-    }
-    // ... (rest of the spawn conditions check) ...
+     if (!window.Canvas || !window.Canvas.canvas) {
+         console.error("Canvas not initialized!");
+         if(window.UI) window.UI.showFeedback("Error: Game canvas not available!");
+         return;
+     }
+     if (!window.GameState || !window.UI) {
+          console.error("GameState or UI not available for spawning unit.");
+          return;
+     }
 
+     // Check game state conditions
     if (window.GameState.gameActive && !window.GameState.gameOver && !window.GameState.gamePaused) {
+        // Check if Knight is selected and unlocked
         if (this.selectedUnitType.name === "Knight" && !window.GameState.isKnightUnlocked) {
           window.UI.showFeedback("Knight is locked!");
           return;
         }
+        // Check gold cost
         if (window.GameState.gold >= this.selectedUnitType.cost) {
             window.GameState.gold -= this.selectedUnitType.cost;
-            const lane = this.units.length % 3;
+            const lane = this.units.length % 3; // Simple lane assignment
             const spawnX = window.Canvas.canvas.width * 0.1;
             const laneHeight = window.Canvas.canvas.height * 0.166;
             const startY = window.Canvas.canvas.height * 0.333;
 
-            const unitType = this.selectedUnitType; // Get the selected type
+            const baseUnitType = this.selectedUnitType; // Get the selected BASE type
+
+            // Calculate stats including upgrades from GameState
+            const currentHealth = Math.floor(baseUnitType.health + (window.GameState.unitHealthUpgrades * 3));
+            const currentDamage = Math.floor(baseUnitType.damage + (window.GameState.unitDamageUpgrades * 2));
 
             const newUnit = {
                 x: spawnX + (Math.random() - 0.5) * 20,
                 y: startY + lane * laneHeight + (Math.random() - 0.5) * laneHeight * 0.5,
-                type: unitType, // Assign the full type object
-                hp: Math.floor(Number(unitType.health) + (window.GameState.unitHealthUpgrades * 3)),
-                speed: Number(unitType.speed),
-                damage: Math.floor(Number(unitType.damage)), // Already includes potential upgrades from load
-                attackRange: Number(unitType.attackRange), // Get range from type
-                attackSpeed: Number(unitType.attackSpeed), // Get attack speed from type
-                maxHp: Math.floor(Number(unitType.health) + (window.GameState.unitHealthUpgrades * 3)),
+                type: baseUnitType, // Store reference to BASE type
+                hp: currentHealth,
+                maxHp: currentHealth, // Store calculated max health
+                // Use base stats + calculated damage for runtime
+                speed: baseUnitType.speed,
+                damage: currentDamage, // Use calculated damage
+                attackRange: baseUnitType.attackRange,
+                attackSpeed: baseUnitType.attackSpeed,
+                reward: 0, // Player units don't give rewards
+                // Other properties
                 opacity: 1,
                 lane: lane,
                 lastAttack: null,
@@ -239,18 +228,22 @@
                 velocityX: 0,
                 velocityY: 0
             };
+            // Clamp position
             newUnit.y = Math.max(0, Math.min(window.Canvas.canvas.height - 30, newUnit.y));
             newUnit.x = Math.max(0, Math.min(window.Canvas.canvas.width - 30, newUnit.x));
-            if (newUnit.x < 0 || newUnit.x > window.Canvas.canvas.width || newUnit.y < 0 || newUnit.y > window.Canvas.canvas.height) {
+             if (newUnit.x < 0 || newUnit.x > window.Canvas.canvas.width || newUnit.y < 0 || newUnit.y > window.Canvas.canvas.height) {
                console.warn(`Unit spawn potentially out of bounds: x=${newUnit.x}, y=${newUnit.y}`);
             }
+
             this.units.push(newUnit);
-            console.log(`Spawned unit: ${newUnit.type.name} at x:${newUnit.x}, y:${newUnit.y}`);
-            if (window.GameState.soundEnabled) {
+            console.log(`Spawned unit: ${newUnit.type.name} (HP:${newUnit.hp}, DMG:${newUnit.damage})`);
+
+            // Play sound
+            if (window.GameState.soundEnabled && document.getElementById("spawnSound")) {
                 document.getElementById("spawnSound").play().catch(e => { console.error("Spawn sound error:", e); });
             }
-            window.UI.updateFooter();
-            this.updateGrid();
+            window.UI.updateFooter(); // Update gold display
+            this.updateGrid(); // Update grid
         } else {
             console.log("Not enough gold to spawn unit");
             window.UI.showFeedback("Not enough gold!");
@@ -262,20 +255,21 @@
   };
 
   // --- Centralized Unit Update Logic ---
+  // This function handles movement, targeting, and attacking for a single unit
   function updateSingleUnit(unit, isAllyUnit, allUnits, allEnemyUnits) {
     let targetOpponentUnit = null;
     let closestOpponentDistSq = Infinity;
     let targetX, targetY;
     let targetIsBase = false;
-    let targetObject = null;
+    let targetObject = null; // The actual object being targeted (unit or base placeholder)
 
-    // Scale attack range by canvas width
+    // Calculate scaled attack range based on canvas size
     const scaledAttackRange = unit.attackRange * (window.Canvas.canvas.width / 800);
     const unitAttackRangeSq = Math.pow(scaledAttackRange, 2);
-    // Base attack range: unit's range + a buffer
+    // Increase range slightly when targeting bases
     const baseAttackRangeSq = Math.pow(scaledAttackRange + BASE_TARGETING_BUFFER * (window.Canvas.canvas.width / 800), 2);
 
-    // 1. Find the nearest OPPONENT unit
+    // 1. Find the nearest OPPONENT unit using the grid system
     const nearbyOpponents = Units.getNearbyUnits(unit.x, unit.y, isAllyUnit, true); // true = find opposing
     nearbyOpponents.forEach(({ unit: opponent }) => {
       const dx = opponent.x - unit.x;
@@ -287,109 +281,101 @@
       }
     });
 
-    // 2. Determine Target
+    // 2. Determine Target (nearest opponent or enemy/player base)
     if (targetOpponentUnit) {
       targetObject = targetOpponentUnit;
       targetX = targetOpponentUnit.x;
       targetY = targetOpponentUnit.y;
       targetIsBase = false;
     } else {
-      // Target the appropriate base
-      if (isAllyUnit) {
-        // Ally targets enemy base (right side)
-        targetX = window.Canvas.canvas.width * 0.9375; // Reference X for targeting
-        targetY = window.Canvas.canvas.height * 0.5;
-        targetObject = { x: targetX, y: targetY, type: { name: "EnemyBase" } }; // Dummy base object
-      } else {
-        // Enemy targets player base (left side)
-        targetX = window.Canvas.canvas.width * 0.075; // Reference X for targeting
-        targetY = window.Canvas.canvas.height * 0.5;
-        targetObject = { x: targetX, y: targetY, type: { name: "PlayerBase" } }; // Dummy base object
-      }
+      // No enemy units nearby, target the appropriate base
       targetIsBase = true;
+      if (isAllyUnit) { // Ally targets enemy base (right side)
+        targetX = window.Canvas.canvas.width * 0.9375; // Reference X
+        targetY = window.Canvas.canvas.height * 0.5; // Aim for center vertically
+        targetObject = { x: targetX, y: targetY, type: { name: "EnemyBase" } }; // Placeholder for logic
+      } else { // Enemy targets player base (left side)
+        targetX = window.Canvas.canvas.width * 0.075; // Reference X
+        targetY = window.Canvas.canvas.height * 0.5;
+        targetObject = { x: targetX, y: targetY, type: { name: "PlayerBase" } }; // Placeholder
+      }
     }
 
+    // Calculate distance to the current target
     const dxTarget = targetX - unit.x;
     const dyTarget = targetY - unit.y;
     const targetDistSq = dxTarget * dxTarget + dyTarget * dyTarget;
     const currentAttackRangeSq = targetIsBase ? baseAttackRangeSq : unitAttackRangeSq;
 
     // 3. Decide Action: Attack or Move
-    let isAttacking = false;
     if (targetDistSq <= currentAttackRangeSq) {
-      isAttacking = true;
-      // Attack logic
-      // Stop horizontal/vertical movement completely when attacking for simplicity now
-      // We could allow *slight* forward creep for melee later if desired.
-      unit.velocityX = 0;
+      // --- Attack Logic ---
+      unit.velocityX = 0; // Stop moving when attacking
       unit.velocityY = 0;
-      if (!unit.lastAttack || Date.now() - unit.lastAttack > unit.attackSpeed) { // Use unit's attack speed
+      // Check attack cooldown using unit's specific attackSpeed
+      if (!unit.lastAttack || Date.now() - unit.lastAttack > unit.attackSpeed) {
         unit.lastAttack = Date.now();
-        window.Canvas.addAttackAnimation(unit, targetX, targetY); // Use target coords for animation
+        window.Canvas.addAttackAnimation(unit, targetX, targetY); // Trigger visual effect
+
+        // Damage calculation (already includes upgrades for player units)
+        let actualDamage = Math.floor(unit.damage);
+
         if (targetIsBase) {
+            // --- Attacking a Base ---
             if (isAllyUnit) { // Ally hitting enemy base
-                window.GameState.enemyBaseHealth = Math.max(0, window.GameState.enemyBaseHealth - Math.floor(unit.damage));
-                window.UI.showDamageNumber(targetX, targetY, Math.floor(unit.damage), false);
+                window.GameState.enemyBaseHealth = Math.max(0, window.GameState.enemyBaseHealth - actualDamage);
+                 if(window.UI) window.UI.showDamageNumber(targetX, targetY, actualDamage, false); // false = enemy taking damage
             } else { // Enemy hitting player base
+                // Apply base defense upgrade
                 const damageReduction = 1 - (window.GameState.baseDefenseUpgrades * 0.1);
-                const damageDealt = Math.max(1, Math.floor(Math.floor(unit.damage) * damageReduction));
+                const damageDealt = Math.max(1, Math.floor(actualDamage * damageReduction)); // Ensure at least 1 damage
                 window.GameState.baseHealth = Math.max(0, window.GameState.baseHealth - damageDealt);
-                window.UI.showDamageNumber(targetX, targetY, damageDealt, true); // true indicates player is taking damage
+                if(window.UI) window.UI.showDamageNumber(targetX, targetY, damageDealt, true); // true = player taking damage
 
-                // --- ADDED SOUND EFFECT LOGIC ---
+                // Play sound when player base is hit
                 if (window.GameState.soundEnabled && window.UI && window.UI.attackSound) {
-                    // Play the attack sound when the player's base takes damage
-                    // Create a new Audio object to allow overlapping sounds if needed
                     const baseHitSound = new Audio(window.UI.attackSound.src);
-                    baseHitSound.volume = window.UI.attackSound.volume; // Respect existing volume setting
+                    baseHitSound.volume = window.UI.attackSound.volume;
                     baseHitSound.play().catch(e => console.error("Enemy base attack sound error:", e));
-                    // console.log(`Enemy ${unit.type.name} hit player base, playing sound.`); // Optional debug log
                 }
-                // --- END ADDED SOUND EFFECT LOGIC ---
 
-                // Check for game over immediately after dealing damage to player base
+                // Check for game over immediately
                 if (window.GameState.baseHealth <= 0 && !window.GameState.gameOver) {
                     console.log(`Enemy ${unit.type.name} dealt fatal blow to base.`);
-                    window.UI.showGameOverModal("Defeat!");
-                    // Return a flag or handle game over state immediately if possible
-                    return 'GameOver'; // Signal game over
+                     if(window.UI) window.UI.showGameOverModal("Defeat!");
+                    return 'GameOver'; // Signal game over to the main loop
                 }
             }
-        } else { // Attacking another unit
-            targetObject.hp = Math.max(0, Math.floor(targetObject.hp - Math.floor(unit.damage)));
-            // Pass !isAllyUnit to showDamageNumber to indicate if the recipient is an enemy (player attacking) or player (enemy attacking)
-            window.UI.showDamageNumber(targetObject.x, targetObject.y, Math.floor(unit.damage), !isAllyUnit);
+        } else {
+            // --- Attacking another Unit ---
+             targetObject.hp = Math.max(0, targetObject.hp - actualDamage);
+             // Show damage number: !isAllyUnit determines if the *recipient* is an enemy (taking damage)
+             if(window.UI) window.UI.showDamageNumber(targetObject.x, targetObject.y, actualDamage, !isAllyUnit);
         }
       }
     } else {
-      // Movement logic
+      // --- Movement Logic ---
       const distance = Math.sqrt(targetDistSq);
-      // --- REDUCE THIS MULTIPLIER ---
-      const moveSpeed = unit.speed * (window.Canvas.canvas.width / 800) * 0.35; // <--- REDUCED MULTIPLIER (Was 0.6)
+      // Adjust base speed based on canvas width, slower overall speed factor
+      const moveSpeed = unit.speed * (window.Canvas.canvas.width / 800) * 0.35; // Reduced speed factor
 
-      // --- Calculate Desired Velocity Components ---
-
-      // 1. Target Following Vector (Normalized)
-      let targetVelX = 0;
-      let targetVelY = 0;
+      // Calculate velocity components: target following, lane adherence, separation
+      let targetVelX = 0, targetVelY = 0;
       if (distance > 1) { // Avoid division by zero
           targetVelX = dxTarget / distance;
           targetVelY = dyTarget / distance;
       }
 
-      // 2. Lane Adherence Vector (Points towards lane center)
+      // Lane adherence calculation
       const laneCenterY = window.Canvas.canvas.height * 0.333 + unit.lane * (window.Canvas.canvas.height * 0.166);
       const dyLane = laneCenterY - unit.y;
-      let laneVelX = 0;
       let laneVelY = 0;
-      const distToLaneCenter = Math.abs(dyLane);
-      if (distToLaneCenter > 5) { // Only apply if significantly off-lane
-          laneVelY = dyLane / distToLaneCenter; // Normalized vertical direction
+      if (Math.abs(dyLane) > 5) { // Only apply if significantly off-lane
+          laneVelY = dyLane / Math.abs(dyLane); // Normalized vertical direction towards lane center
       }
 
-      // 3. Separation Vector (Pushes away from close friendlies)
-      let separationVelX = 0;
-      let separationVelY = 0;
+      // Separation calculation
+      let separationVelX = 0, separationVelY = 0;
       const nearbyFriendlies = Units.getNearbyUnits(unit.x, unit.y, isAllyUnit, false); // false = find friendlies
       nearbyFriendlies.forEach(({ unit: friendly }) => {
         if (friendly === unit) return; // Don't separate from self
@@ -399,45 +385,29 @@
 
         if (distSqFriendly > 0 && distSqFriendly < SEPARATION_RADIUS_SQ) {
            const distFriendly = Math.sqrt(distSqFriendly);
-           // Add force pushing away, stronger when closer
-           separationVelX += (dxFriendly / distFriendly) / distFriendly; // Inverse distance weighting
+           // Add force pushing away, stronger when closer (inverse distance weighting)
+           separationVelX += (dxFriendly / distFriendly) / distFriendly;
            separationVelY += (dyFriendly / distFriendly) / distFriendly;
         }
       });
 
-      // --- Combine Velocities ---
-      // Weight the components: primary is target, add lane adherence and separation
-      // Reduce lane adherence effect when very close to target? Maybe not needed yet.
-      let desiredVelX = targetVelX * moveSpeed
-                      + laneVelX * LANE_ADHERENCE_FORCE // Lane force is weaker, acts as a nudge
-                      + separationVelX * SEPARATION_FORCE; // Separation force is also a nudge
+      // Combine velocities with weights
+      let desiredVelX = targetVelX * moveSpeed           // Main target following
+                      + separationVelX * SEPARATION_FORCE; // Separation nudge
+      let desiredVelY = targetVelY * moveSpeed * 0.7     // Reduced vertical target pull
+                      + laneVelY * LANE_ADHERENCE_FORCE  // Lane adherence nudge
+                      + separationVelY * SEPARATION_FORCE; // Separation nudge
 
-      // Make vertical target following slightly less strong to prioritize horizontal progress
-      let desiredVelY = targetVelY * moveSpeed * 0.7 // Slightly reduced vertical pull towards target (was 0.3)
-                      + laneVelY * LANE_ADHERENCE_FORCE // Lane force nudge
-                      + separationVelY * SEPARATION_FORCE; // Separation force nudge
-
-
-      // --- Apply Smoothing / Acceleration ---
-      // --- SLIGHTLY REDUCED ACCELERATION (OPTIONAL) ---
-      const accelerationFactor = 0.06; // <--- SLIGHTLY REDUCED (Was 0.08)
+      // Apply smoothing/acceleration towards the desired velocity
+      const accelerationFactor = 0.06; // Controls how quickly velocity changes
       unit.velocityX += (desiredVelX - unit.velocityX) * accelerationFactor;
       unit.velocityY += (desiredVelY - unit.velocityY) * accelerationFactor;
 
-      // Optional: Clamp maximum velocity?
-      // const maxVel = moveSpeed * 1.5;
-      // const currentSpeedSq = unit.velocityX * unit.velocityX + unit.velocityY * unit.velocityY;
-      // if (currentSpeedSq > maxVel * maxVel) {
-      //    const currentSpeed = Math.sqrt(currentSpeedSq);
-      //    unit.velocityX = (unit.velocityX / currentSpeed) * maxVel;
-      //    unit.velocityY = (unit.velocityY / currentSpeed) * maxVel;
-      // }
-
-      // --- Update Position ---
+      // Update position based on current velocity
       unit.x += unit.velocityX;
       unit.y += unit.velocityY;
 
-      // Clamp position to canvas bounds (prevent units going off-screen)
+      // Clamp position to stay within canvas bounds
       unit.y = Math.max(10, Math.min(window.Canvas.canvas.height - 40, unit.y));
       unit.x = Math.max(10, Math.min(window.Canvas.canvas.width - 40, unit.x));
     }
@@ -447,22 +417,22 @@
   }
 
 
+  // Main update loop for all units, called by game.js loop driver
   Units.update = function () {
     try {
+      if (!window.GameState || !window.Canvas || !window.UI) {
+          console.error("Units.update prerequisites not met (GameState, Canvas, or UI missing).");
+          return; // Cannot proceed
+      }
+      // Check if game should run updates
       if (!window.GameState.gameActive || window.GameState.gameOver || window.GameState.gamePaused) {
-        // Still request next frame even if paused/inactive to keep the canvas rendering loop potentially alive
-        // and responsive to unpausing. The game logic itself won't run.
-        if (window.Game && window.Game.gameLoopRunning) {
-             requestAnimationFrame(this.update.bind(this));
-        } else if (!window.Game || !window.Game.gameLoopRunning){
-            // If the main game loop isn't running (e.g., after game over), don't restart it here.
-        }
+        // Don't run game logic, but allow canvas redraw if necessary (handled by Game.js loop)
         return;
       }
 
       let needsGridUpdate = false;
 
-      // Check for grid updates - can be optimized later if needed
+      // Check if any unit moved to a new grid cell
       this.units.forEach(unit => {
         const currentKey = this.getGridKey(unit.x, unit.y);
         if (unit.lastGridKey !== currentKey) needsGridUpdate = true;
@@ -472,11 +442,12 @@
         if (unit.lastGridKey !== currentKey) needsGridUpdate = true;
       });
 
+      // --- Process Deaths and Rewards ---
       const rewards = { gold: 0, diamonds: 0 };
       const unitsToRemove = [];
       const enemyUnitsToRemove = [];
 
-      // Process unit deaths and rewards FIRST
+      // Check player units for death
       for (let i = this.units.length - 1; i >= 0; i--) {
         const unit = this.units[i];
         if (unit.hp <= 0) {
@@ -485,102 +456,112 @@
           needsGridUpdate = true;
         }
       }
+      // Check enemy units for death and calculate rewards
       for (let i = this.enemyUnits.length - 1; i >= 0; i--) {
         const unit = this.enemyUnits[i];
         if (unit.hp <= 0) {
-          rewards.gold += unit.type.reward;
-          rewards.diamonds += Math.floor(unit.type.reward / 2);
-          enemyUnitsToRemove.push(i);
-          window.Canvas.addDeathAnimation(unit);
-          needsGridUpdate = true;
+             rewards.gold += unit.reward || 0; // Use reward stored on the unit instance
+             rewards.diamonds += Math.floor((unit.reward || 0) / 2); // Base diamonds on stored reward
+             enemyUnitsToRemove.push(i);
+             window.Canvas.addDeathAnimation(unit);
+             needsGridUpdate = true;
         }
       }
 
-      // Apply rewards
-      if (rewards.gold > 0 || rewards.diamonds > 0) {
+      // Apply rewards and save persistent progress if diamonds changed
+      if (rewards.diamonds > 0) {
         window.GameState.gold += rewards.gold;
         window.GameState.diamonds += rewards.diamonds;
-        try { localStorage.setItem('warriorDiamonds', window.GameState.diamonds); }
-        catch (e) { console.error("Failed to save diamonds:", e); window.UI.showFeedback("Warning: Unable to save progress."); }
-        window.UI.updateFooter();
+        // Call central save function (saves locally and cloud if logged in)
+         if(window.Shop && window.Shop.savePersistentProgress) {
+             window.Shop.savePersistentProgress('warriorDiamonds', window.GameState.diamonds);
+         } else { console.error("Shop.savePersistentProgress not found!"); }
+        window.UI.updateFooter(); // Update UI immediately
+      } else if (rewards.gold > 0) {
+          // Only gold increased, just update GameState and UI
+          window.GameState.gold += rewards.gold;
+          window.UI.updateFooter();
       }
+
 
       // Remove dead units from arrays
       unitsToRemove.forEach(i => this.units.splice(i, 1));
       enemyUnitsToRemove.forEach(i => this.enemyUnits.splice(i, 1));
 
-      // Update grid if necessary AFTER removing units
+      // Update grid if any units died or moved cells
       if (needsGridUpdate) {
         try { this.updateGrid(); }
         catch (e) { console.error("Grid update failed:", e); window.UI.showFeedback("Error updating unit positions!"); }
       }
 
-      // Clear canvas and draw bases
+      // --- Drawing ---
       window.Canvas.ctx.clearRect(0, 0, window.Canvas.canvas.width, window.Canvas.canvas.height);
+      // Draw bases (calculate player max health dynamically)
       const playerMaxHealth = 150 + (window.GameState.baseHealthUpgrades * 25);
       window.Canvas.drawBase(60, "#3b5998", window.GameState.baseHealth, playerMaxHealth, window.GameState.baseDefenseUpgrades);
+      // Enemy base health isn't upgraded
       window.Canvas.drawBase(740, "#dc3545", window.GameState.enemyBaseHealth, 150, 0);
 
 
-      // --- Ally Unit Update Loop ---
-      // Iterate forwards now that removals are done
+      // --- Unit Updates and Drawing ---
+      // Ally Unit Update Loop
       for (let i = 0; i < this.units.length; i++) {
          const unit = this.units[i];
-         // Update unit's state
-         updateSingleUnit(unit, true, this.units, this.enemyUnits);
-         // Draw unit *after* its state is updated for this frame
-         window.Canvas.drawUnit(unit);
+         updateSingleUnit(unit, true, this.units, this.enemyUnits); // Update logic
+         window.Canvas.drawUnit(unit); // Draw updated unit
       }
 
-
-      // --- Enemy Unit Update Loop ---
+      // Enemy Unit Update Loop - Check for game over signal
        let gameOverTriggered = false;
-       // Iterate forwards now that removals are done
        for (let i = 0; i < this.enemyUnits.length; i++) {
          const unit = this.enemyUnits[i];
-         // Update unit's state
-         const updateResult = updateSingleUnit(unit, false, this.units, this.enemyUnits);
-         // Draw unit *after* its state is updated for this frame
-         window.Canvas.drawUnit(unit);
+         const updateResult = updateSingleUnit(unit, false, this.units, this.enemyUnits); // Update logic
+         window.Canvas.drawUnit(unit); // Draw updated unit
          if (updateResult === 'GameOver') {
              gameOverTriggered = true;
-             // Don't break, let others finish drawing for this frame.
+             // Don't break; let others finish logic/drawing for this frame.
          }
        }
 
        // Draw animations after all units are drawn
        window.Canvas.renderAnimations();
 
-       // If game over was triggered, stop further processing this frame.
+       // If game over was triggered during enemy updates, stop further processing
        if (gameOverTriggered) {
            console.log("Game Over detected during enemy update loop.");
-           // Main game loop flag (Game.gameLoopRunning) should be set false by showGameOverModal
-           // which prevents the next requestAnimationFrame in the *main* game loop driver.
+           // Game.js loop driver will stop based on GameState.gameOver flag set by showGameOverModal
            return;
        }
 
 
-      // Handle enemy base destruction (Wave End)
+      // --- Handle Wave End ---
       if (window.GameState.enemyBaseHealth <= 0 && !window.GameState.gameOver) {
         console.log(`Enemy base destroyed! Advancing to wave ${window.GameState.wave + 1}`);
         window.GameState.wave++;
         window.GameState.waveStarted = false;
+        // Award wave clear resources
         window.GameState.gold += 20 + Math.floor(window.GameState.wave * 2);
         window.GameState.diamonds += 5; // Base diamond reward per wave clear
-        window.GameState.enemyBaseHealth = 150; // Reset enemy base health
+        // Reset for next wave
+        window.GameState.enemyBaseHealth = 150;
         this.units = []; // Clear remaining player units
         this.enemyUnits = []; // Clear remaining enemy units
         this.updateGrid(); // Clear grid
-        try { localStorage.setItem('warriorDiamonds', window.GameState.diamonds); }
-        catch (e) { console.error("Failed to save diamonds:", e); window.UI.showFeedback("Warning: Unable to save progress."); }
-        window.UI.updateFooter();
-        window.UI.drawWaveProgress(); // Update wave display immediately
 
+        // Save persistent progress (includes new diamonds)
+         if(window.Shop && window.Shop.savePersistentProgress) {
+             window.Shop.savePersistentProgress('warriorDiamonds', window.GameState.diamonds);
+         } else { console.error("Shop.savePersistentProgress not found!"); }
+
+        // Update UI
+        window.UI.updateFooter();
+        window.UI.drawWaveProgress();
+
+        // Start next wave or declare victory
         if (window.GameState.gameActive) {
            if (window.GameState.wave <= window.GameState.maxWaves) {
-               // Spawn next wave immediately
-               this.spawnWave(window.GameState.wave);
-               window.UI.showFeedback(`Enemy base destroyed! Wave ${window.GameState.wave} started!`);
+               this.spawnWave(window.GameState.wave); // Spawn next wave immediately
+               window.UI.showFeedback(`Wave ${window.GameState.wave} started! +5💎`);
            } else {
                window.UI.showGameOverModal("Victory!");
                return; // Victory, stop update loop
@@ -588,29 +569,23 @@
         }
       }
 
-      // Player base destruction check (redundant, handled in updateSingleUnit, but safe)
+      // Final check for player base destruction (should be redundant but safe)
       if (window.GameState.baseHealth <= 0 && !window.GameState.gameOver) {
         console.warn("Player base destroyed check in main loop triggered - should have been caught earlier.");
         if (!window.GameState.gameOver) window.UI.showGameOverModal("Defeat!");
         return; // Stop update loop
       }
 
-      // Schedule the next frame ONLY if the main game loop flag is still true
-      // (Game.js loop driver handles the requestAnimationFrame)
-      // No need to requestAnimationFrame here anymore as Game.js handles the loop driver.
+      // Loop continues via Game.js requestAnimationFrame driver
 
     } catch (e) {
       console.error("Error in Units.update:", e);
-      window.UI.showFeedback("Game error occurred. Please check console and consider restarting.");
-      // Let the main game loop handle potential continuation or stopping
-      // if (!window.GameState.gameOver && window.Game && window.Game.gameLoopRunning) {
-      //    requestAnimationFrame(this.update.bind(this)); // Maybe re-request if error occurs? Risky.
-      // }
+      if(window.UI) window.UI.showFeedback("Game error occurred. Please check console and consider restarting.");
+      // Let Game.js loop handle stopping if necessary
     }
   }; // End of Units.update
 
 
   window.Units = Units;
 })();
-
 // --- END OF FILE units.js ---

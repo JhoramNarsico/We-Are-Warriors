@@ -3,132 +3,184 @@
 (function () {
   const Game = {};
 
-  Game.gameLoopRunning = false; // Track if the loop is active
+  Game.gameLoopRunning = false; // Track if the main game update loop is active
 
-  Game.init = function () {
+  // Initialize the game asynchronously, handling dependencies and auth
+  Game.init = async function () { // <--- Added async
     console.log("Initializing game...");
 
-    // --- Firebase Auth/Firestore Initialization happens within auth.js ---
-    // We just need to ensure Auth and Leaderboard modules are loaded and run their setup
-
-    // 1. Setup Auth UI and State Listener (Must happen after DOM is ready)
-    // This also initializes the Firebase app and gets Auth/Firestore instances
+    // 1. Setup Auth UI and State Listener (crucial first step)
     if (typeof Auth !== 'undefined' && Auth.setupAuthUI) {
-        Auth.setupAuthUI(); // Sets up forms and the crucial onAuthStateChanged listener
+        Auth.setupAuthUI(); // Sets up forms and the onAuthStateChanged listener
     } else {
         console.error("Auth module failed to load or setupAuthUI function missing!");
-        if(window.UI) window.UI.showFeedback("Error: Online features unavailable!");
+        // Attempt to show feedback if UI is loaded, otherwise log
+        if(window.UI && window.UI.showFeedback) {
+             window.UI.showFeedback("Error: Online features unavailable!");
+        } else {
+             console.error("UI module not available to show feedback.");
+        }
+        // Stop initialization if auth fails
+        return;
     }
 
-    // 2. Initialize Leaderboard Module (tries to get DB reference from Auth)
+     // 2. Initialize Leaderboard Module (depends on Auth providing DB)
      if (typeof Leaderboard !== 'undefined' && Leaderboard.init) {
          Leaderboard.init();
      } else {
-         console.error("Leaderboard module failed to load or init function missing!");
+          console.error("Leaderboard module failed to load or init function missing!");
      }
 
 
-    // 3. Check for saved game state (local save) AFTER auth listener potentially runs
+    // 3. Wait for the initial authentication check and potential cloud data load
+    // This ensures GameState has the correct user/progress before proceeding
+    console.log("Waiting for initial authentication check...");
+    if (typeof Auth === 'undefined' || !Auth.initialAuthCheckPromise) {
+         console.error("Auth module or initial promise missing! Cannot proceed.");
+         // Potentially show error and stop
+          if(window.UI) window.UI.showFeedback("Error initializing authentication.");
+         return;
+    }
+    try {
+        await Auth.initialAuthCheckPromise; // <--- Wait here
+        console.log("Initial authentication check complete. Proceeding with game initialization.");
+    } catch (error) {
+        console.error("Error during initial authentication check:", error);
+        // Handle error? Maybe proceed with local data? For now, log and potentially stop.
+         if(window.UI) window.UI.showFeedback("Error checking login status.");
+        return;
+    }
+    // At this point, Auth.loadUserProgressFromCloud() should have run if the user was logged in.
+
+
+    // 4. Check for local save file (used for offline/logged-out state *and* tutorial skip)
     const hasSavedGame = localStorage.getItem('warriorGameState') !== null;
 
-    // 4. Initialize Game State (This will use Auth.currentUser if set by the listener)
-    // It also loads local save if `hasSavedGame` is true
-    window.GameState.initGame(hasSavedGame);
+    // 5. Initialize Game State
+    // GameState.initGame now uses GameState.currentUser (set by auth listener)
+    // to decide whether to use cloud data or load local progress/session.
+     if (!window.GameState || !window.GameState.initGame) {
+          console.error("GameState module or initGame function missing! Cannot initialize game state.");
+          return;
+     }
+     // Initialize game state. It will internally check GameState.currentUser.
+     // We pass 'false' here because we only want to load local *mid-game* state
+     // if the user explicitly clicks "Load Game" (e.g., from tutorial).
+     // Basic init will load local *persistent* progress if not logged in.
+    window.GameState.initGame(false);
 
 
-    // 5. Setup Canvas
-    // Wait briefly for potential resize calculations based on initial viewport
-    setTimeout(() => {
-         if (window.Canvas && window.Canvas.resizeCanvas) {
-            window.Canvas.resizeCanvas();
-        } else {
-             console.error("Canvas module not loaded or resizeCanvas function missing!");
-        }
-    }, 50); // Short delay
+    // 6. Setup Canvas
+     if (window.Canvas && window.Canvas.resizeCanvas) {
+         // Brief delay to allow layout calculations after potential UI shifts from login state
+         await new Promise(resolve => setTimeout(resolve, 50));
+         window.Canvas.resizeCanvas();
+     } else {
+          console.error("Canvas module not loaded or resizeCanvas function missing!");
+     }
 
 
-    // 6. Initialize UI Elements and States (dependent on GameState)
+    // 7. Initialize UI Elements and States
+    // This runs *after* GameState is initialized with either cloud or local data.
     if (window.UI) {
-        window.UI.checkAudioFiles();
+        UI.checkAudioFiles(); // Check audio file paths
+        // Update all relevant UI components based on the initialized GameState
         window.UI.updateFooter();
-        window.UI.updateButtonStates(); // Ensure buttons reflect initial login/game state
+        window.UI.updateButtonStates();
         window.UI.updateKnightButtonState();
         window.UI.addTooltips();
-        window.UI.updateUnitSelectionUI();
-        window.UI.updateUnitInfoPanel();
+        window.UI.updateUnitSelectionUI(); // Includes updating info panel
         window.UI.updateUpgradesDisplay();
         window.UI.drawWaveProgress();
-        window.UI.updateBackgroundMusicState(); // Set initial music state
+        window.UI.updateBackgroundMusicState(); // Set initial music based on state
     } else {
-        console.error("UI module not loaded!");
+         console.error("UI module not loaded! Cannot update interface.");
     }
 
 
-    // 7. Initialize Shop (dependent on GameState for diamonds/upgrades)
+    // 8. Initialize Shop
+    // updateShop depends on GameState (diamonds, unlocks) being correctly initialized.
     if (window.Shop && window.Shop.updateShop) {
-      const shop = document.getElementById("shop");
+      const shopElement = document.getElementById("shop");
       const toggleShopButton = document.getElementById("toggleShopButton");
-      if (shop) shop.style.display = "none"; // Explicitly hide shop on init
+      if (shopElement) shopElement.style.display = "none"; // Start hidden
       if(toggleShopButton) toggleShopButton.textContent = "Show Shop";
-      window.Shop.updateShop(); // Initial shop update
+      window.Shop.updateShop(); // Populate shop based on GameState
+       if(window.Shop.updateGoldProduction) { window.Shop.updateGoldProduction(); } // Ensure interval is set correctly
     } else {
-      console.error("Shop module not loaded or updateShop function missing!");
-      if(window.UI) window.UI.showFeedback("Error: Shop module unavailable!");
+       console.error("Shop module not loaded or updateShop function missing!");
+       if(window.UI) window.UI.showFeedback("Error: Shop module unavailable!");
     }
 
-    // 8. Initialize Event Listeners (now includes leaderboard button, auth form listeners via Auth.js)
+    // 9. Initialize Event Listeners (Should be loaded after other modules)
      if (window.Events && window.Events.init) {
         window.Events.init();
     } else {
-         console.error("Events module not loaded or init function missing!");
-    }
+          console.error("Events module not loaded or init function missing!");
+     }
 
 
-    // 9. Show Tutorial (Only if NO *local* saved game exists)
-    // Auth state doesn't determine if tutorial shows, only local save does.
+    // 10. Show Tutorial (Only if NO *local* save exists, regardless of login status)
+    // The user can log in/sign up from within the tutorial modal.
+    // hasSavedGame checks for 'warriorGameState', indicating a session was played.
     if (!hasSavedGame && window.UI && window.UI.showTutorial) {
         window.UI.showTutorial();
     } else {
-        // If loaded game or tutorial element missing, ensure tutorial is hidden
+        // Ensure tutorial is hidden if a local save exists or tutorial UI is missing
         if (window.UI && window.UI.tutorialModal) window.UI.tutorialModal.style.display = 'none';
-        if (hasSavedGame) console.log("Skipping tutorial due to saved game.");
+        if (hasSavedGame) console.log("Skipping tutorial due to existing local saved game state.");
+         // Make sure music state is correct if tutorial skipped
+         if (window.UI) window.UI.updateBackgroundMusicState();
     }
 
 
     console.log("Game initialization complete.");
-  };
+  }; // End of Game.init
 
-  Game.startGameUpdateLoop = function () {
+
+  // Starts the main game update loop using requestAnimationFrame
+  Game.startGameUpdateLoop = function () { /* ... remains same ... */
     if (this.gameLoopRunning) {
       console.log("Game loop already running.");
       return;
     }
+    // Ensure Units module and its update function are available
     if (!window.Units || !window.Units.update) {
-        console.error("Units module not ready to start game loop!");
+        console.error("Units module or update function not ready to start game loop!");
         if(window.UI) window.UI.showFeedback("Error starting game loop!");
         return;
     }
+
     console.log("Starting game update loop");
     this.gameLoopRunning = true;
-    // Use requestAnimationFrame for the loop driver
+
+    // Define the loop function
     const gameLoop = (timestamp) => {
-        if (!this.gameLoopRunning) return; // Stop loop if flag is set to false
+        // Stop the loop if the flag is set to false (e.g., by game over)
+        if (!this.gameLoopRunning) {
+            console.log("Game loop stopped.");
+            return;
+        }
 
-        window.Units.update(); // Run the unit update logic
+        // Run the core game logic update (movement, attacks, etc.)
+        window.Units.update();
 
-        // Check if still running after update (game over might stop it)
+        // Schedule the next frame if the loop should continue
         if (this.gameLoopRunning) {
-            requestAnimationFrame(gameLoop); // Schedule the next frame
+            requestAnimationFrame(gameLoop);
         }
     };
-    requestAnimationFrame(gameLoop); // Start the loop
+
+    // Start the loop
+    requestAnimationFrame(gameLoop);
   };
 
-  // Initialize the game when the window loads
+  // Add event listener to start the game initialization when the window loads
   window.addEventListener("load", () => {
-    Game.init();
+    Game.init(); // Call the async init function
   });
 
+  // Expose the Game object globally
   window.Game = Game;
 })();
 // --- END OF FILE game.js ---
