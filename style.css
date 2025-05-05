@@ -667,3 +667,53 @@ body {
     padding: 6px;
   }
 }
+/* Add to style.css */
+.leaderboard-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.leaderboard-list li {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 5px;
+  border-bottom: 1px solid #4a3c31;
+  color: #d5d5d5;
+}
+
+.leaderboard-list li:last-child {
+  border-bottom: none;
+}
+
+.leaderboard-list .rank {
+  flex-basis: 10%;
+  font-weight: bold;
+  color: #e6c88a;
+  text-align: right;
+  margin-right: 10px;
+}
+
+.leaderboard-list .email {
+  flex-grow: 1;
+  text-align: left;
+  margin-right: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.leaderboard-list .wave {
+  flex-basis: 25%;
+  text-align: right;
+  font-weight: bold;
+}
+
+/* Style tweaks for auth forms if needed */
+#authContainer input {
+  background-color: #3a3a3a;
+  border: 1px solid #6b5844;
+  color: #f5f5f5;
+  border-radius: 4px;
+}

@@ -5,17 +5,17 @@
 
   // Define base stats including attack range and speed (cooldown in ms)
   Units.BASE_ENEMY_STATS = {
-    // Melee units: range 35, speed 1000ms
-    // Archer: range 150, speed 1200ms
-    BARBARIAN: { health: 15, damage: 3, speed: 0.8, reward: 2, attackRange: 35, attackSpeed: 1000 },
-    ARCHER: { health: 8, damage: 6, speed: 1.0, reward: 3, attackRange: 150, attackSpeed: 1200 },
-    HORSE: { health: 25, damage: 12, speed: 1.6, reward: 4, attackRange: 40, attackSpeed: 900 }, // Slightly more range/faster attack than Barb
-    KNIGHT: { health: 40, damage: 8, speed: 1.2, reward: 6, attackRange: 40, attackSpeed: 1100 } // Tankier, bit more range, slower attack
+    // --- INCREASE attackSpeed values ---
+    BARBARIAN: { health: 15, damage: 3, speed: 0.8, reward: 2, attackRange: 35, attackSpeed: 1400 }, // Was 1000
+    ARCHER: { health: 8, damage: 6, speed: 1.0, reward: 3, attackRange: 150, attackSpeed: 1700 }, // Was 1200
+    HORSE: { health: 25, damage: 12, speed: 1.6, reward: 4, attackRange: 40, attackSpeed: 1300 }, // Was 900
+    KNIGHT: { health: 40, damage: 8, speed: 1.2, reward: 6, attackRange: 40, attackSpeed: 1600 } // Was 1100
   };
 
   Units.UNIT_TYPES = {
+     // --- INCREASE attackSpeed values to match BASE_ENEMY_STATS ---
     BARBARIAN: {
-      ...Units.BASE_ENEMY_STATS.BARBARIAN,
+      ...Units.BASE_ENEMY_STATS.BARBARIAN, // Inherits the increased attackSpeed
       name: "Barbarian",
       color: "#3b5998",
       cost: 5,
@@ -23,7 +23,7 @@
       strengths: "Balanced fighter with solid health and damage."
     },
     ARCHER: {
-      ...Units.BASE_ENEMY_STATS.ARCHER,
+      ...Units.BASE_ENEMY_STATS.ARCHER, // Inherits the increased attackSpeed
       name: "Archer",
       color: "#28a745",
       cost: 8,
@@ -31,7 +31,7 @@
       strengths: "High ranged damage."
     },
     HORSE: {
-      ...Units.BASE_ENEMY_STATS.HORSE,
+      ...Units.BASE_ENEMY_STATS.HORSE, // Inherits the increased attackSpeed
       name: "Horse",
       color: "#dc3545",
       cost: 12,
@@ -39,7 +39,7 @@
       strengths: "Fast movement and strong attacks."
     },
     KNIGHT: {
-      ...Units.BASE_ENEMY_STATS.KNIGHT,
+      ...Units.BASE_ENEMY_STATS.KNIGHT, // Inherits the increased attackSpeed
       name: "Knight",
       color: "#ffd700",
       cost: 15,
@@ -334,7 +334,19 @@
                 const damageReduction = 1 - (window.GameState.baseDefenseUpgrades * 0.1);
                 const damageDealt = Math.max(1, Math.floor(Math.floor(unit.damage) * damageReduction));
                 window.GameState.baseHealth = Math.max(0, window.GameState.baseHealth - damageDealt);
-                window.UI.showDamageNumber(targetX, targetY, damageDealt, true);
+                window.UI.showDamageNumber(targetX, targetY, damageDealt, true); // true indicates player is taking damage
+
+                // --- ADDED SOUND EFFECT LOGIC ---
+                if (window.GameState.soundEnabled && window.UI && window.UI.attackSound) {
+                    // Play the attack sound when the player's base takes damage
+                    // Create a new Audio object to allow overlapping sounds if needed
+                    const baseHitSound = new Audio(window.UI.attackSound.src);
+                    baseHitSound.volume = window.UI.attackSound.volume; // Respect existing volume setting
+                    baseHitSound.play().catch(e => console.error("Enemy base attack sound error:", e));
+                    // console.log(`Enemy ${unit.type.name} hit player base, playing sound.`); // Optional debug log
+                }
+                // --- END ADDED SOUND EFFECT LOGIC ---
+
                 // Check for game over immediately after dealing damage to player base
                 if (window.GameState.baseHealth <= 0 && !window.GameState.gameOver) {
                     console.log(`Enemy ${unit.type.name} dealt fatal blow to base.`);
@@ -345,14 +357,15 @@
             }
         } else { // Attacking another unit
             targetObject.hp = Math.max(0, Math.floor(targetObject.hp - Math.floor(unit.damage)));
-            window.UI.showDamageNumber(targetObject.x, targetObject.y, Math.floor(unit.damage), !isAllyUnit); // !isAllyUnit indicates enemy damage
+            // Pass !isAllyUnit to showDamageNumber to indicate if the recipient is an enemy (player attacking) or player (enemy attacking)
+            window.UI.showDamageNumber(targetObject.x, targetObject.y, Math.floor(unit.damage), !isAllyUnit);
         }
       }
     } else {
       // Movement logic
       const distance = Math.sqrt(targetDistSq);
-      // Base speed adjustment, similar to before but maybe slightly higher base factor
-      const moveSpeed = unit.speed * (window.Canvas.canvas.width / 800) * 0.6;
+      // --- REDUCE THIS MULTIPLIER ---
+      const moveSpeed = unit.speed * (window.Canvas.canvas.width / 800) * 0.35; // <--- REDUCED MULTIPLIER (Was 0.6)
 
       // --- Calculate Desired Velocity Components ---
 
@@ -406,8 +419,8 @@
 
 
       // --- Apply Smoothing / Acceleration ---
-      // Increase acceleration factor slightly for responsiveness
-      const accelerationFactor = 0.08;
+      // --- SLIGHTLY REDUCED ACCELERATION (OPTIONAL) ---
+      const accelerationFactor = 0.06; // <--- SLIGHTLY REDUCED (Was 0.08)
       unit.velocityX += (desiredVelX - unit.velocityX) * accelerationFactor;
       unit.velocityY += (desiredVelY - unit.velocityY) * accelerationFactor;
 
@@ -437,7 +450,13 @@
   Units.update = function () {
     try {
       if (!window.GameState.gameActive || window.GameState.gameOver || window.GameState.gamePaused) {
-        requestAnimationFrame(this.update.bind(this));
+        // Still request next frame even if paused/inactive to keep the canvas rendering loop potentially alive
+        // and responsive to unpausing. The game logic itself won't run.
+        if (window.Game && window.Game.gameLoopRunning) {
+             requestAnimationFrame(this.update.bind(this));
+        } else if (!window.Game || !window.Game.gameLoopRunning){
+            // If the main game loop isn't running (e.g., after game over), don't restart it here.
+        }
         return;
       }
 
@@ -457,6 +476,7 @@
       const unitsToRemove = [];
       const enemyUnitsToRemove = [];
 
+      // Process unit deaths and rewards FIRST
       for (let i = this.units.length - 1; i >= 0; i--) {
         const unit = this.units[i];
         if (unit.hp <= 0) {
@@ -476,6 +496,7 @@
         }
       }
 
+      // Apply rewards
       if (rewards.gold > 0 || rewards.diamonds > 0) {
         window.GameState.gold += rewards.gold;
         window.GameState.diamonds += rewards.diamonds;
@@ -484,57 +505,60 @@
         window.UI.updateFooter();
       }
 
+      // Remove dead units from arrays
       unitsToRemove.forEach(i => this.units.splice(i, 1));
       enemyUnitsToRemove.forEach(i => this.enemyUnits.splice(i, 1));
 
+      // Update grid if necessary AFTER removing units
       if (needsGridUpdate) {
         try { this.updateGrid(); }
         catch (e) { console.error("Grid update failed:", e); window.UI.showFeedback("Error updating unit positions!"); }
       }
 
+      // Clear canvas and draw bases
       window.Canvas.ctx.clearRect(0, 0, window.Canvas.canvas.width, window.Canvas.canvas.height);
-
       const playerMaxHealth = 150 + (window.GameState.baseHealthUpgrades * 25);
       window.Canvas.drawBase(60, "#3b5998", window.GameState.baseHealth, playerMaxHealth, window.GameState.baseDefenseUpgrades);
       window.Canvas.drawBase(740, "#dc3545", window.GameState.enemyBaseHealth, 150, 0);
 
 
       // --- Ally Unit Update Loop ---
-      for (let i = this.units.length - 1; i >= 0; i--) {
-         // Check if unit still exists (might have been removed if target died)
-         if (!this.units[i]) continue;
+      // Iterate forwards now that removals are done
+      for (let i = 0; i < this.units.length; i++) {
          const unit = this.units[i];
-         // No need to pass allUnits/allEnemyUnits if updateSingleUnit uses getNearbyUnits
+         // Update unit's state
          updateSingleUnit(unit, true, this.units, this.enemyUnits);
-         // Draw unit *after* its state is updated
+         // Draw unit *after* its state is updated for this frame
          window.Canvas.drawUnit(unit);
       }
 
 
       // --- Enemy Unit Update Loop ---
        let gameOverTriggered = false;
-       for (let i = this.enemyUnits.length - 1; i >= 0; i--) {
-         // Check if unit still exists
-         if (!this.enemyUnits[i]) continue;
+       // Iterate forwards now that removals are done
+       for (let i = 0; i < this.enemyUnits.length; i++) {
          const unit = this.enemyUnits[i];
+         // Update unit's state
          const updateResult = updateSingleUnit(unit, false, this.units, this.enemyUnits);
-         // Draw unit *after* its state is updated
+         // Draw unit *after* its state is updated for this frame
          window.Canvas.drawUnit(unit);
          if (updateResult === 'GameOver') {
              gameOverTriggered = true;
-             // Don't break here, let other units finish their *current* frame update/draw cycle
-             // The game over modal/state prevents further actions/frames anyway.
+             // Don't break, let others finish drawing for this frame.
          }
        }
-       // If game over was triggered during enemy updates, stop further processing this frame
+
+       // Draw animations after all units are drawn
+       window.Canvas.renderAnimations();
+
+       // If game over was triggered, stop further processing this frame.
        if (gameOverTriggered) {
            console.log("Game Over detected during enemy update loop.");
-           // The gameOver modal should prevent the next frame request naturally.
+           // Main game loop flag (Game.gameLoopRunning) should be set false by showGameOverModal
+           // which prevents the next requestAnimationFrame in the *main* game loop driver.
            return;
        }
 
-
-      window.Canvas.renderAnimations();
 
       // Handle enemy base destruction (Wave End)
       if (window.GameState.enemyBaseHealth <= 0 && !window.GameState.gameOver) {
@@ -554,11 +578,9 @@
 
         if (window.GameState.gameActive) {
            if (window.GameState.wave <= window.GameState.maxWaves) {
-               // Spawn next wave after a short delay for effect? Or immediately?
-               // setTimeout(() => { // Optional delay
-                   this.spawnWave(window.GameState.wave);
-                   window.UI.showFeedback(`Enemy base destroyed! Wave ${window.GameState.wave} started!`);
-               // }, 500); // 0.5 second delay example
+               // Spawn next wave immediately
+               this.spawnWave(window.GameState.wave);
+               window.UI.showFeedback(`Enemy base destroyed! Wave ${window.GameState.wave} started!`);
            } else {
                window.UI.showGameOverModal("Victory!");
                return; // Victory, stop update loop
@@ -566,25 +588,24 @@
         }
       }
 
-      // Player base destruction check (redundant now, handled in updateSingleUnit, but safe)
+      // Player base destruction check (redundant, handled in updateSingleUnit, but safe)
       if (window.GameState.baseHealth <= 0 && !window.GameState.gameOver) {
         console.warn("Player base destroyed check in main loop triggered - should have been caught earlier.");
-        // Ensure game over state is set if somehow missed
         if (!window.GameState.gameOver) window.UI.showGameOverModal("Defeat!");
         return; // Stop update loop
       }
 
-      // Schedule the next frame if the game isn't over
-      if (!window.GameState.gameOver) {
-        requestAnimationFrame(this.update.bind(this));
-      }
+      // Schedule the next frame ONLY if the main game loop flag is still true
+      // (Game.js loop driver handles the requestAnimationFrame)
+      // No need to requestAnimationFrame here anymore as Game.js handles the loop driver.
 
     } catch (e) {
       console.error("Error in Units.update:", e);
       window.UI.showFeedback("Game error occurred. Please check console and consider restarting.");
-      if (!window.GameState.gameOver) {
-        requestAnimationFrame(this.update.bind(this));
-      }
+      // Let the main game loop handle potential continuation or stopping
+      // if (!window.GameState.gameOver && window.Game && window.Game.gameLoopRunning) {
+      //    requestAnimationFrame(this.update.bind(this)); // Maybe re-request if error occurs? Risky.
+      // }
     }
   }; // End of Units.update
 

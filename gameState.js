@@ -1,3 +1,5 @@
+// --- START OF FILE gameState.js ---
+
 (function () {
   const GameState = {};
 
@@ -24,10 +26,19 @@
   GameState.unitDamageUpgrades = 0;
   GameState.baseDefenseUpgrades = 0;
   GameState.isKnightUnlocked = false;
+  GameState.currentUser = null; // ADDED: To store { uid, email }
 
   // Initialize Game
   GameState.initGame = function (loadSaved = false) {
     console.log("Initializing game state, loadSaved:", loadSaved);
+    // Check auth state (Auth listener in auth.js runs independently and sets GameState.currentUser)
+    if (typeof Auth === 'undefined' || !Auth.auth) {
+        console.warn("Auth module not ready during GameState.initGame.");
+    } else {
+        // Auth listener will set GameState.currentUser if already logged in
+        console.log("Current user state during initGame:", GameState.currentUser);
+    }
+
 
     if (!loadSaved) {
       // Load saved upgrades first for new game
@@ -45,9 +56,10 @@
       window.Units.units = [];
       window.Units.enemyUnits = [];
       this.gold = 50;
+      // Load diamonds from local storage first, even for a new game
       this.diamonds = localStorage.getItem('warriorDiamonds') ? parseInt(localStorage.getItem('warriorDiamonds')) : 100;
     } else {
-      // Load saved game state
+      // Load saved game state (local save)
       this.loadGame();
     }
 
@@ -76,7 +88,7 @@
     window.UI.updateUnitSelectionUI();
     window.UI.updateUnitInfoPanel();
     window.UI.updateUpgradesDisplay();
-    window.UI.updateButtonStates();
+    window.UI.updateButtonStates(); // Needs to update based on potential login status now
     window.UI.updateKnightButtonState();
   };
 
@@ -102,7 +114,7 @@
     }
   };
 
-  // Save game state
+  // Save game state (local save only for now)
   GameState.saveGame = function() {
     try {
       const gameState = {
@@ -110,7 +122,7 @@
         baseHealth: this.baseHealth,
         enemyBaseHealth: this.enemyBaseHealth,
         gold: this.gold,
-        diamonds: this.diamonds,
+        diamonds: this.diamonds, // Keep saving diamonds locally too
         baseHealthUpgrades: this.baseHealthUpgrades,
         unitHealthUpgrades: this.unitHealthUpgrades,
         goldProductionUpgrades: this.goldProductionUpgrades,
@@ -120,7 +132,7 @@
         selectedUnitType: window.Units.selectedUnitType ? window.Units.selectedUnitType.name : "BARBARIAN"
       };
       localStorage.setItem('warriorGameState', JSON.stringify(gameState));
-      console.log("Game state saved:", gameState);
+      console.log("Game state saved locally:", gameState);
       window.UI.showFeedback("Game progress saved!");
     } catch (e) {
       console.error("Failed to save game state:", e);
@@ -128,7 +140,7 @@
     }
   };
 
-  // Load game state
+  // Load game state (local save only for now)
   GameState.loadGame = function() {
     try {
       const savedState = localStorage.getItem('warriorGameState');
@@ -138,7 +150,7 @@
         this.baseHealth = state.baseHealth || 150;
         this.enemyBaseHealth = state.enemyBaseHealth || 150;
         this.gold = state.gold || 50;
-        this.diamonds = state.diamonds || 100;
+        this.diamonds = state.diamonds || parseInt(localStorage.getItem('warriorDiamonds')) || 100; // Prioritize state save, then local storage, then default
         this.baseHealthUpgrades = state.baseHealthUpgrades || 0;
         this.unitHealthUpgrades = state.unitHealthUpgrades || 0;
         this.goldProductionUpgrades = state.goldProductionUpgrades || 0;
@@ -154,12 +166,12 @@
         this.waveStarted = false;
         this.waveCooldown = false;
         this.waveCooldownTimer = 0;
-        console.log("Game state loaded:", state);
+        console.log("Local game state loaded:", state);
         window.UI.showFeedback("Game progress loaded!");
       } else {
-        console.log("No saved game state found.");
+        console.log("No saved local game state found.");
         window.UI.showFeedback("No saved game found!");
-        this.initGame(); // Fallback to default initialization
+        this.initGame(); // Fallback to default initialization (which loads upgrades)
       }
     } catch (e) {
       console.error("Failed to load game state:", e);
@@ -168,7 +180,7 @@
     }
   };
 
-  // Reset game for new game
+  // Reset game for new game (clears local storage)
   GameState.resetGame = function() {
     try {
       localStorage.removeItem('warriorGameState');
@@ -180,9 +192,23 @@
       localStorage.removeItem('warriorBaseDefenseUpgrades');
       localStorage.removeItem('warriorKnightUnlocked');
       localStorage.removeItem('warriorUnitDamage');
-      console.log("Game state and upgrades reset.");
+      console.log("Local game state and upgrades reset.");
       window.UI.showFeedback("New game started!");
+      // Re-initialize with default values, but keep any logged-in user state
+      const currentUserBeforeReset = this.currentUser;
       this.initGame();
+      this.currentUser = currentUserBeforeReset; // Restore user info after reset
+      // Explicitly update UI elements after reset
+      window.UI.updateFooter();
+      window.UI.updateUnitSelectionUI();
+      window.UI.updateUnitInfoPanel();
+      window.UI.updateUpgradesDisplay();
+      window.UI.updateButtonStates();
+      window.UI.updateKnightButtonState();
+      window.UI.drawWaveProgress();
+      if(window.Shop) window.Shop.updateShop();
+
+
     } catch (e) {
       console.error("Failed to reset game state:", e);
       window.UI.showFeedback("Error starting new game.");
@@ -218,3 +244,4 @@
   // Expose GameState
   window.GameState = GameState;
 })();
+// --- END OF FILE gameState.js ---

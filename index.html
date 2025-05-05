@@ -6,6 +6,13 @@
     <title>Warrior Defense</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+
+    <!-- Firebase SDK (Order Matters!) -->
+    <!-- Make sure these are loaded before your game scripts that use them -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
+
 </head>
 <body>
     <div class="game-container">
@@ -14,6 +21,12 @@
                 <span><span class="icon">💰</span><span id="goldDisplay">0</span></span>
                 <span><span class="icon">💎</span><span id="diamondDisplay">0</span></span>
                 <span><span class="icon">🌊</span><span id="waveDisplay">1</span></span>
+            </div>
+            <!-- User Status and Leaderboard Button Area -->
+            <div class="user-auth-status" style="margin: 0 15px; text-align: center; display: flex; align-items: center; gap: 10px;">
+                <span id="userStatus">Initializing...</span>
+                <button id="logoutButton" class="control-button" style="display: none; padding: 5px 10px; font-size: 0.9em;">Logout</button>
+                <button id="leaderboardButton" class="control-button" style="padding: 5px 10px; font-size: 0.9em;">Leaderboard</button>
             </div>
             <div class="wave-progress">
                 <div id="waveProgressBar"></div>
@@ -58,7 +71,7 @@
             <button id="fightButton" class="control-button">Fight!</button>
             <button id="spawnButton" class="control-button">Spawn Unit</button>
             <button id="pauseButton" class="control-button">Pause</button>
-            <button id="surrenderButton" class="control-button">Surrender</button>
+            <button id="surrenderButton" class="control-button">Surrender</button> <!-- Footer Surrender remains -->
             <button id="restartButton" class="control-button">Restart</button>
         </div>
     </div>
@@ -72,7 +85,7 @@
             <button id="resumeButton" class="control-button">Resume</button>
             <button id="saveGameButton" class="control-button">Save Game</button>
             <button id="newGameButton" class="control-button">New Game</button>
-            <button id="surrenderPauseButton" class="control-button">Surrender</button>
+            <!-- Surrender button from Pause Menu is REMOVED -->
         </div>
     </div>
     <div id="gameOverModal">
@@ -90,7 +103,8 @@
             <h2>Welcome to Warrior Defense!</h2>
             <p>Prepare for battle! Your goal is to defend your base while leading your warriors to destroy the enemy stronghold.</p>
             <div class="tutorial-carousel">
-                <div class="tutorial-slide active" data-slide="0">
+                <!-- Tutorial Slides 0-5 -->
+                 <div class="tutorial-slide active" data-slide="0">
                     <h3>⚔️ Objective & Winning</h3>
                     <p>Protect your blue base (left) from incoming enemy waves (red, right).</p>
                     <p>Destroy the enemy's red base to clear the current wave and advance.</p>
@@ -136,7 +150,35 @@
                     <p><strong>New Game/Restart:</strong> Use buttons in Pause Menu or Footer.</p>
                     <p><strong>Good luck, Commander!</strong></p>
                 </div>
+                <!-- End Tutorial Slides -->
             </div>
+
+            <!-- Authentication Section within Tutorial Modal -->
+            <div id="authContainer" style="margin-top: 20px; border-top: 1px solid #6b5844; padding-top: 15px;">
+                <h4>Online Features (Optional)</h4>
+                 <p style="font-size: 0.9em; color: #aaa;">Log in or sign up to save your high score to the global leaderboard!</p>
+                <div id="authError" style="color: #ff6b6b; margin-bottom: 10px; display: none; font-size: 0.9em; background: rgba(255,0,0,0.1); padding: 5px; border-radius: 4px;"></div>
+
+                <!-- Login Form -->
+                <form id="loginForm" style="display: block;">
+                    <h5>Login</h5>
+                    <input type="email" id="loginEmail" placeholder="Email" required style="margin-bottom: 5px; padding: 8px; width: 90%; background-color: #3a3a3a; border: 1px solid #6b5844; color: #f5f5f5; border-radius: 4px;">
+                    <input type="password" id="loginPassword" placeholder="Password" required style="margin-bottom: 10px; padding: 8px; width: 90%; background-color: #3a3a3a; border: 1px solid #6b5844; color: #f5f5f5; border-radius: 4px;">
+                    <button type="submit" id="loginButton" class="control-button" style="padding: 8px 12px; font-size: 0.9em;">Login</button>
+                    <p style="margin-top: 10px; font-size: 0.9em;">Don't have an account? <a href="#" id="showSignupLink" style="color: #e6c88a;">Sign Up</a></p>
+                </form>
+
+                <!-- Signup Form -->
+                <form id="signupForm" style="display: none;">
+                    <h5>Sign Up</h5>
+                    <input type="email" id="signupEmail" placeholder="Email" required style="margin-bottom: 5px; padding: 8px; width: 90%; background-color: #3a3a3a; border: 1px solid #6b5844; color: #f5f5f5; border-radius: 4px;">
+                    <input type="password" id="signupPassword" placeholder="Password (min. 6 characters)" required style="margin-bottom: 10px; padding: 8px; width: 90%; background-color: #3a3a3a; border: 1px solid #6b5844; color: #f5f5f5; border-radius: 4px;">
+                    <button type="submit" id="signupButton" class="control-button" style="padding: 8px 12px; font-size: 0.9em;">Sign Up</button>
+                    <p style="margin-top: 10px; font-size: 0.9em;">Already have an account? <a href="#" id="showLoginLink" style="color: #e6c88a;">Login</a></p>
+                </form>
+            </div>
+             <!-- End Authentication Section -->
+
             <div class="tutorial-navigation">
                 <button id="tutorialPrevButton" class="control-button" disabled>Previous</button>
                 <button id="tutorialNextButton" class="control-button">Next</button>
@@ -146,23 +188,38 @@
         </div>
     </div>
 
-    <!-- Existing Audio -->
+    <!-- Leaderboard Modal -->
+    <div id="leaderboardModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.9); justify-content: center; align-items: center; z-index: 25;">
+        <div style="background: #2c1e14; padding: 30px; border-radius: 12px; text-align: center; max-width: 500px; width: 90%; border: 3px solid #e6c88a; box-shadow: 0 6px 25px rgba(0, 0, 0, 0.7); position: relative;">
+            <h2>Leaderboard</h2>
+            <div id="leaderboardLoading" style="display: none; margin: 20px; color: #e6c88a;">Loading...</div>
+            <div id="leaderboardContent" style="max-height: 60vh; overflow-y: auto; margin: 20px 0; text-align: left;">
+                <!-- Leaderboard entries will be injected here -->
+            </div>
+            <button id="closeLeaderboardButton" class="control-button" style="margin-top: 15px;">Close</button>
+        </div>
+    </div>
+
+    <!-- Audio Elements -->
     <audio id="spawnSound" src="./sounds/spawn.mp3"></audio>
     <audio id="attackSound" src="./sounds/attack.mp3"></audio>
     <audio id="winSound" src="./sounds/win.mp3"></audio>
     <audio id="loseSound" src="./sounds/lose.mp3"></audio>
-
-    <!-- Added Audio -->
     <audio id="backgroundMusic" src="./sounds/background_music.mp3" loop></audio>
     <audio id="buttonClickSound" src="./sounds/button_click.mp3"></audio>
 
-    <!-- Scripts -->
+    <!-- Game Scripts (Order Matters!) -->
+    <!-- Load Firebase integration scripts first -->
+    <script src="auth.js"></script>
+    <script src="leaderboard.js"></script>
+    <!-- Then load core game logic -->
     <script src="gameState.js"></script>
     <script src="canvas.js"></script>
     <script src="units.js"></script>
-    <script src="ui.js"></script> <!-- Load UI script -->
+    <script src="ui.js"></script>
     <script src="shop.js"></script>
-    <script src="events.js"></script> <!-- Load Events script -->
+    <script src="events.js"></script> <!-- Load events.js AFTER other modules it references -->
+    <!-- Finally load the main game initializer -->
     <script src="game.js"></script>
 </body>
 </html>
