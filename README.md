@@ -2,8 +2,8 @@
 
 Warrior Defense is a simple side-scrolling base defense game built with HTML, CSS, and vanilla JavaScript. Players spawn units to defend their base and destroy the enemy's base across multiple waves, utilizing gold and diamond resources for spawning and upgrades. It features optional Firebase integration for user authentication and an online leaderboard.
 
-**(Add a Screenshot/GIF Here)**
-<!-- ![Gameplay Screenshot](screenshot.gif) -->
+**(screenshot.gif)**
+<!-- (screenshot.gif) -->
 *(Replace the line above with an actual screenshot or GIF of your game)*
 
 ## Features
