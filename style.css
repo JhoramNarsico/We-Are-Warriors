@@ -710,7 +710,6 @@ body {
   font-weight: bold;
 }
 
-/* Style tweaks for auth forms if needed */
 #authContainer input {
   background-color: #3a3a3a;
   border: 1px solid #6b5844;

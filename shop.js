@@ -1,4 +1,3 @@
-// --- START OF FILE shop.js ---
 (function () {
   const Shop = {};
 
@@ -146,7 +145,6 @@
         return true;
   };
 
-  // --- NEW: Centralized save function ---
   // Saves locally and calls Auth.saveUserProgressToCloud if logged in
   Shop.savePersistentProgress = function(localStorageKey, value) {
     try {
@@ -166,7 +164,6 @@
       window.UI.showFeedback("Warning: Unable to save purchase data locally!");
     }
   };
-  // --- END NEW ---
 
   Shop.updateGoldProduction = function() { /* ... remains same ... */
     // Calculate rate based on current upgrade level
@@ -205,8 +202,8 @@
 
   // --- Throttle shop updates ---
   Shop.throttleTimeout = null;
-  Shop.throttleDelay = 150; /* ... remains same ... */
-  Shop.throttledUpdate = function() { /* ... remains same ... */
+  Shop.throttleDelay = 150; 
+  Shop.throttledUpdate = function() { 
     if (Shop.throttleTimeout) return; // Don't queue another if one is pending
 
     Shop.throttleTimeout = setTimeout(() => {
@@ -216,7 +213,7 @@
   };
 
   // Initialize DOM elements
-  Shop.init = function() { /* ... remains same ... */
+  Shop.init = function() { 
     DOM.shopElement = document.getElementById("shop");
     DOM.toggleShopButton = document.getElementById("toggleShopButton");
 
@@ -233,7 +230,7 @@
   };
 
   // Update Shop UI
-  Shop.updateShop = function() { /* ... remains same ... */
+  Shop.updateShop = function() { 
         if (!DOM.shopElement) {
           console.warn("Shop element not initialized, skipping updateShop."); // Warn instead of error
           return;
@@ -314,4 +311,3 @@
   // Expose Shop
   window.Shop = Shop;
 })();
-// --- END OF FILE shop.js ---

@@ -1,4 +1,3 @@
-// --- START OF FILE units.js ---
 (function () {
   const Units = {};
 
@@ -76,11 +75,7 @@
         }
         return nearbyUnits;
     };
-  // --- End Grid Functions ---
-
-
-  // --- REMOVED loading warriorUnitDamage locally - Damage calculated dynamically ---
-
+ 
   // Calculate scaled enemy stats for a given wave
   Units.getScaledEnemyStats = function (typeKey, currentWave) {
       const healthScale = Math.max(1, Math.pow(1.15, currentWave - 1));
@@ -254,7 +249,6 @@
     }
   };
 
-  // --- Centralized Unit Update Logic ---
   // This function handles movement, targeting, and attacking for a single unit
   function updateSingleUnit(unit, isAllyUnit, allUnits, allEnemyUnits) {
     let targetOpponentUnit = null;
@@ -502,8 +496,6 @@
       // Enemy base health isn't upgraded
       window.Canvas.drawBase(740, "#dc3545", window.GameState.enemyBaseHealth, 150, 0);
 
-
-      // --- Unit Updates and Drawing ---
       // Ally Unit Update Loop
       for (let i = 0; i < this.units.length; i++) {
          const unit = this.units[i];
@@ -588,4 +580,3 @@
 
   window.Units = Units;
 })();
-// --- END OF FILE units.js ---

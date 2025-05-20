@@ -1,5 +1,3 @@
-// --- START OF FILE ui.js ---
-
 (function () {
   const UI = {};
 
@@ -615,7 +613,6 @@
           }
       }
 
-      // Update ARIA label for accessibility
       this.knightButton.setAttribute('aria-label', `Select Knight unit${isUnlocked ? '' : ' (Locked)'}`);
 
       // Update tooltip content by regenerating it
@@ -633,4 +630,3 @@
   // Expose UI object globally
   window.UI = UI;
 })();
-// --- END OF FILE ui.js ---

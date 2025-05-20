@@ -1,5 +1,3 @@
-// --- START OF FILE game.js ---
-
 (function () {
   const Game = {};
 
@@ -50,15 +48,11 @@
          if(window.UI) window.UI.showFeedback("Error checking login status.");
         return;
     }
-    // At this point, Auth.loadUserProgressFromCloud() should have run if the user was logged in.
-
 
     // 4. Check for local save file (used for offline/logged-out state *and* tutorial skip)
     const hasSavedGame = localStorage.getItem('warriorGameState') !== null;
 
     // 5. Initialize Game State
-    // GameState.initGame now uses GameState.currentUser (set by auth listener)
-    // to decide whether to use cloud data or load local progress/session.
      if (!window.GameState || !window.GameState.initGame) {
           console.error("GameState module or initGame function missing! Cannot initialize game state.");
           return;
@@ -81,7 +75,6 @@
 
 
     // 7. Initialize UI Elements and States
-    // This runs *after* GameState is initialized with either cloud or local data.
     if (window.UI) {
         UI.checkAudioFiles(); // Check audio file paths
         // Update all relevant UI components based on the initialized GameState
@@ -99,7 +92,6 @@
 
 
     // 8. Initialize Shop
-    // updateShop depends on GameState (diamonds, unlocks) being correctly initialized.
     if (window.Shop && window.Shop.updateShop) {
       const shopElement = document.getElementById("shop");
       const toggleShopButton = document.getElementById("toggleShopButton");
@@ -121,8 +113,6 @@
 
 
     // 10. Show Tutorial (Only if NO *local* save exists, regardless of login status)
-    // The user can log in/sign up from within the tutorial modal.
-    // hasSavedGame checks for 'warriorGameState', indicating a session was played.
     if (!hasSavedGame && window.UI && window.UI.showTutorial) {
         window.UI.showTutorial();
     } else {
@@ -139,7 +129,7 @@
 
 
   // Starts the main game update loop using requestAnimationFrame
-  Game.startGameUpdateLoop = function () { /* ... remains same ... */
+  Game.startGameUpdateLoop = function () { 
     if (this.gameLoopRunning) {
       console.log("Game loop already running.");
       return;
@@ -183,4 +173,3 @@
   // Expose the Game object globally
   window.Game = Game;
 })();
-// --- END OF FILE game.js ---

@@ -1,5 +1,3 @@
-// --- START OF FILE events.js ---
-
 (function () {
   const Events = {};
 
@@ -23,7 +21,6 @@
     }
     // ===============================================
 
-    // --- ADDED: Leaderboard Button Listener ---
     const leaderboardButton = document.getElementById("leaderboardButton");
     if (leaderboardButton) {
         leaderboardButton.addEventListener('click', () => {
@@ -46,7 +43,6 @@
     } else {
         console.error("Leaderboard button not found!");
     }
-    // --- END ADDED ---
 
     // Unit Selection Buttons
     window.UI.unitButtons.forEach(button => {
@@ -257,21 +253,6 @@
       });
     }
 
-    // --- Surrender Button (Pause Menu) Listener REMOVED/COMMENTED OUT ---
-    /*
-    const surrenderPauseButton = document.getElementById("surrenderPauseButton");
-    if (surrenderPauseButton) {
-      surrenderPauseButton.addEventListener("click", () => {
-        window.UI.playButtonClickSound(); // Explicit sound for pause menu button
-        if (window.GameState.gameActive && !window.GameState.gameOver) {
-            window.UI.showGameOverModal("Surrendered!"); // Handles music pause & score saving
-            window.UI.pauseMenu.style.display = "none";
-        }
-      });
-    }
-    */
-    // --- END REMOVED/COMMENTED OUT ---
-
     // Game Over Restart Button
     const gameOverRestartButton = document.getElementById("gameOverRestartButton");
     if (gameOverRestartButton) {
@@ -416,8 +397,6 @@
     } else {
         console.warn("Tutorial modal element not found. Listeners not added.");
     }
-    // ==========================================
-
 
     // Keydown Escape Listener (Pause/Resume/Close Menus)
     document.addEventListener("keydown", (e) => {
@@ -480,4 +459,3 @@
 
   window.Events = Events;
 })();
-// --- END OF FILE events.js ---

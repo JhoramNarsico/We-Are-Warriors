@@ -1,5 +1,3 @@
-// --- START OF FILE gameState.js ---
-
 (function () {
   const GameState = {};
 
@@ -28,10 +26,8 @@
   // --- End Persistent state ---
   GameState.goldProductionRate = 800; // Base value, calculated from upgrades
   GameState.goldInterval = null;
-  GameState.currentUser = null; // Set by Auth.js
-
-  // --- MODIFIED: Initialize Game ---
-  // Now depends on Auth module having already loaded cloud data if user is logged in.
+  GameState.currentUser = null; 
+ 
   GameState.initGame = function (loadLocalMidGameState = false) {
     console.log("Initializing game state. User:", this.currentUser ? this.currentUser.email : 'None', "Load Local Mid-Game:", loadLocalMidGameState);
 
@@ -99,8 +95,6 @@
       }
     }, this.goldProductionRate);
 
-
-    // --- Final UI Updates (Reflecting loaded cloud/local/default state) ---
     if (window.UI) {
         window.UI.updateFooter();
         window.UI.updateUnitSelectionUI();
@@ -224,13 +218,6 @@
     }
   };
 
-  // --- loadGame is now handled by initGame logic ---
-  // Keep function stub? Or remove? Let's remove it to avoid confusion.
-  // GameState.loadGame = function() {
-  //     this.initGame(true); // Tell initGame to attempt loading local mid-game state
-  // };
-
-  // --- MODIFIED: Reset game (clears local storage, resets GameState, DOES NOT clear cloud) ---
   GameState.resetGame = function() {
     console.log("Resetting game (local state and current session)...");
     try {
@@ -279,7 +266,6 @@
     }
   };
 
-  // --- MODIFIED: Unlock Knight - Save via Shop's method ---
   GameState.unlockKnight = function() {
     if (!this.isKnightUnlocked) {
       this.isKnightUnlocked = true;
@@ -302,4 +288,3 @@
   // Expose GameState
   window.GameState = GameState;
 })();
-// --- END OF FILE gameState.js ---

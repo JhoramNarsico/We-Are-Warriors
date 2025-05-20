@@ -1,9 +1,6 @@
-// --- START OF FILE auth.js ---
 (function() {
     const Auth = {};
 
-    // --- PASTE YOUR FIREBASE CONFIG HERE ---
-    // Ensure this matches your Firebase project settings exactly
     const firebaseConfig = {
         apiKey: "AIzaSyCVOT_6RN_qhLbJSi7NpTm6n__KnZ5BAk0", // Replace with your actual key
         authDomain: "we-are-warriors-20bda.firebaseapp.com", // Replace
@@ -69,7 +66,6 @@
         Auth.showError('');
     };
 
-    // --- NEW: Save user's persistent progress (diamonds, upgrades) to Firestore ---
     Auth.saveUserProgressToCloud = async function() {
         // Ensure prerequisites are met (logged in, modules loaded)
         if (!Auth.auth || !Auth.db || !window.GameState || !window.GameState.currentUser) {
@@ -99,7 +95,6 @@
         }
     };
 
-    // --- NEW: Load user's persistent progress from Firestore ---
     Auth.loadUserProgressFromCloud = async function(userId) {
         if (!Auth.db || !window.GameState) {
             console.error("Firestore DB or GameState not available for loading progress.");
@@ -413,7 +408,6 @@
             });
     };
 
-    // --- MODIFIED: Sign Out function - includes saving progress first ---
     Auth.signOutUser = async function() { // Make async to await progress save
         if (!Auth.auth) { Auth.showError("Auth service unavailable."); return; }
 
@@ -440,4 +434,3 @@
     window.Auth = Auth;
 
 }());
-// --- END OF FILE auth.js ---

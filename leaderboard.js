@@ -1,4 +1,3 @@
-// --- START OF FILE leaderboard.js ---
 (function() {
     const Leaderboard = {};
 
@@ -138,4 +137,3 @@
     window.Leaderboard = Leaderboard;
 
 }());
-// --- END OF FILE leaderboard.js ---
